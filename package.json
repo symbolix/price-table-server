@@ -1,15 +1,15 @@
 {
-  "name": "price-table",
-  "version": "1.1.0",
-  "description": "A simple server for ticker data with a websocket backend.",
+  "name": "price-table-server",
+  "version": "0.0.7",
+  "description": "A simple server for ticker data with a websockets backend.",
   "main": "ws.js",
   "scripts": {
-    "start": "open index.html && node ws",
+    "start": "node ./src/server/ws.js",
     "prompt": "echo 'No prompt functionality available'",
     "greet": "echo 'Welcome to my project.'"
   },
   "keywords": [
-    "Websocket"
+    "Websockets"
   ],
   "author": "Crypto Eraser <cryptoeraser@gmail.com> (www.tradekit.io)",
   "license": "MIT",
