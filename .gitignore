@@ -1,0 +1,30 @@
+# ;----------------------------;
+# ;  Project Specific Ignores  ;
+# ;----------------------------;
+# VIM temp files
+*~
+*swp
+
+# Node modules folder
+node_modules/
+
+# ;----------------------------;
+# ; GitHub Boilerplate Ignores ;
+# ;----------------------------;
+
+# C extensions
+*.so
+
+# OSX cache files
+.DS_Store
+
+# Distribution / packaging
+env/
+build/
+dist/
+downloads/
+# lib/
+# lib64/
+parts/
+sdist/
+var/
