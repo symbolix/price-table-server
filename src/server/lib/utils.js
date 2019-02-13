@@ -338,18 +338,18 @@ function generatePayload(dataObj){
 }
 // }}}1
 
-// @public sendExchangeRequest(id, pair, symbols, callback) {{{1
+// @public sendExchangeRequest(id, pair, symbols) {{{1
 //
 //  ARGS:
 //      id: exchange id.
 //      pair: fiat pair.
 //      symbols: array of symbols
-//      callback: callback function.
 //
 //  INFO:
 //      A wrapper for the exchange request.
 //
-async function sendExchangeRequest(id, pair, symbols, callback){
+async function sendExchangeRequest(id, pair, symbols){
+    const CONTEXT = 'exchangeRequest';
     let processData = {
         assets: {},
         signature: {}
@@ -362,9 +362,6 @@ async function sendExchangeRequest(id, pair, symbols, callback){
 
     // Flags
     let processSuccess;
-
-    // Init
-    let errorState = false;
 
     // Fetch Data
     for (let symbol of processSymbols) {
@@ -379,7 +376,7 @@ async function sendExchangeRequest(id, pair, symbols, callback){
         let entryKey = symbol.split('/')[0].toLowerCase();
 
         log.debug({
-            context: 'request',
+            context: CONTEXT,
             verbosity: 7,
             message: 'Data for [{0}] on [{1}] has been requested.'.stringFormatter(symbol, id)
         });
@@ -393,7 +390,7 @@ async function sendExchangeRequest(id, pair, symbols, callback){
             const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
-                context: 'request',
+                context: CONTEXT,
                 verbosity: 2,
                 message: 'Data received: [{0}], [{1}], [{2}]'.stringFormatter(
                     ticker['symbol'], ticker['timestamp'], ticker['last'])
@@ -407,11 +404,13 @@ async function sendExchangeRequest(id, pair, symbols, callback){
                 success: true
             };
 
-        } catch (e) { // catch the error (if any) and handle it or ignore it
+        } catch (failure) { // catch the error (if any) and handle it or ignore it
             // The structure of the exception is: e.constructor.name, e.message
+            // console.log('---\n', failure, '\n---');
             log.error({
-                context: 'request',
-                message: 'Data request for [{0}] on [{1}] has failed with the following exception:\n{2}'.stringFormatter(symbol, exchange.id, e.constructor.name)
+                context: CONTEXT,
+                message: 'Data request for [{0}] on [{1}] has failed with the following exception:\n{2}: {3}'
+                    .stringFormatter(symbol, exchange.id, failure.name, failure.message)
             });
 
             // We still need to maintain a consistent carriage container.
@@ -424,7 +423,6 @@ async function sendExchangeRequest(id, pair, symbols, callback){
             };
             // Flag the whole request as unsuccessful.
             processSuccess = false;
-            errorState = true;
         }
     }
 
@@ -433,8 +431,7 @@ async function sendExchangeRequest(id, pair, symbols, callback){
     processData.signature['success'] = processSuccess;
 
     // Output
-    let err = errorState;
-    callback(err, processData);
+    return processData;
 }
 // }}}1
 

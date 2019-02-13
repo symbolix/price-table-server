@@ -1,6 +1,9 @@
 'use strict';
 // lib/mock-data.js
 
+// Local Imports
+const { MockExchangeError } = require('./errors');
+
 // Mock Ticker Object {{{1
 const mockTickers = {
     get BTC_EUR() {
@@ -214,47 +217,45 @@ let mockData = {
 
 /* Private Functions*/
 
-function MockTickerError(){
-    // Place holder.
-}
-
-// @private queryMockTickers(symbol, callback)
+// @private queryMockTickers(symbol, callback) {{{1
+//
+//  ARGS:
 //      symbol: any of the ticker symbols
-//{{{1
+//  NOTES:
+//      A low level API response emulator.
+//
 function queryMockTickers(symbol){
     // Promisify the request.
     return new Promise((resolve, reject) => {
         let result;
 
-        // We need to follow the exception convention of the original call
-        // fetchTicker call. This will be propagated up-stream.
-        let error = {
-            Error: 'None',
-            constructor: {}
-        };
-
-        // Emulate an asynchroneous fetch.
+        // Emulate an asynchronous fetch.
         setTimeout(() => {
             result = mockTickers[symbol];
-            if(result==undefined){
-                error.Error = `__FATAL__: Item [${symbol}] NOT found.`;
-                error.constructor = MockTickerError;
+            try {
+                if(result==undefined){
+                    let message = `Ticker [${symbol}] is NOT found.`;
+                    let error = new MockExchangeError(message, 'TickerNotFound');
+                    reject(error);
+                }else{
+                    resolve(result);
+                }
+            } catch (error) {
                 reject(error);
-            }else{
-                resolve(result);
             }
         }, 500);
     });
 }
 //}}}1
 
-// @private randomLastPrice()
-//}}}1
-
-// @private randomLastPrice(min, max)
+// @private randomLastPrice(min, max) {{{1
+//
+//  ARGS:
 //      min: Minimum value.
 //      max: Maximum value.
-//{{{1
+//  INFO:
+//      A function to generate a random last price, within the provided range.
+//
 function randomLastPrice(min, max){
     // console.log('min:', min, 'max', max);
     return Math.random() * (max - min) + min;
@@ -263,33 +264,34 @@ function randomLastPrice(min, max){
 
 /* Public Functions */
 
+// @public moduleTest() {{{1
+//  ARGS:
+//      No arguments.
+//  INFO:
+//      A simple module test function.
+//
 function moduleTest(){
-    console.log('__UTILS__ module accessed.');
+    console.log('__MOCK-DATA__ module accessed.');
 }
-// @public ASYNC fetchTicker(symbol, callback)
-//      symbol: any of the ticker symbols
-//      callbacl: optional function tobe passed as a callback.
-//{{{1
-async function fetchTicker(symbol, callback) {
-    // We need to swith the separator here.
-    let symbolSeparator = symbol.replace('/', '_');
+//}}}1
 
+// @public async fetchTicker(symbol) {{{1
+//
+//  ARGS:
+//      symbol: any of the ticker symbols
+//  INFO:
+//      A wrapper for the mock API request.
+//
+async function fetchTicker(symbol) {
+    // We need to switch the separator here.
+    let symbolSeparator = symbol.replace('/', '_');
     let data;
     try {
         // Make the async call.
         data = await queryMockTickers(symbolSeparator);
-
-        // no need to handle the error here as errors are propagated as exceptions.
-
-        // Continue with the callback incase a callback function is provided
-        // which should be optional.
-        if(typeof callback === 'function'){
-            callback(data);
-        }else{
-            return data;
-        }
+        return data;
     } catch(err) {
-        // Prepagate the exception up stream.
+        // Propagate the exception up stream.
         throw err;
     }
 }

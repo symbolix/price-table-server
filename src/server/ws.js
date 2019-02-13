@@ -11,6 +11,7 @@ const globals = require('./lib/globals');
 const config = require('./lib/configs');
 const logging = require('./lib/logging');
 const tables = require('./lib/tables');
+const mockdata = require('./lib/mock-data');
 
 // Symbols
 const SYMBOLS = [
@@ -57,7 +58,7 @@ async function fetchExchangeData(id, pair, symbols) {
         return new Promise((resolve, reject) => {
             try {
                 // Send the request.
-                utils.sendExchangeRequest(id, 'USD', symbols, ((err, output) => {
+                utils.sendExchangeRequest(id, pair, symbols, ((err, output) => {
                     try{
                         if(err){
                             // Failure
@@ -88,7 +89,7 @@ async function fetchExchangeData(id, pair, symbols) {
                     }
                 }));
             } catch(error) {
-                console.log('---\n', error, '\n---');
+                // console.log('---\n', error, '\n---');
                 throw error;
             }
         });
@@ -118,49 +119,46 @@ async function fetchExchangeData(id, pair, symbols) {
 //
 async function getExchangeData(id, pair, symbols) {
     const CONTEXT = 'getExchangeData';
-    let response;
     try {
         // Make an async promise call. The await is needed here otherwise the
         // process will not be set to wait until the cache file is imported.
-        await fetchExchangeData(id, pair, symbols)
-            .then((result) => {
-                // Success
-                log.debug({
-                    context: CONTEXT,
-                    message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('__SUCCESS__')
-                });
-                response = { error: false, data: result.data };
-            })
-            .catch((failure) => {
-                // Hard Failure
-                if (failure instanceof Error) {
-                    throw failure;
-                }
-                // Soft Failure
-                log.debug({
-                    context: CONTEXT,
-                    message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter(failure.error)
-                });
-                response = { error: true, data: failure.data };
-            });
-    } catch(error) {
-        log.error({
+        return await fetchExchangeData(id, pair, symbols);
+
+        // Success
+        //log.debug({
+        //    context: CONTEXT,
+        //    message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('__SUCCESS__')
+        //});
+    } catch (failure) {
+        // Hard Failure
+        if (failure instanceof Error) {
+            throw failure;
+        }
+        // Soft Failure
+        log.debug({
             context: CONTEXT,
-            message: 'Failed to complete exchange request with the following exception:\n{0}: {1}'
-                .stringFormatter(error.name, error.message)
+            message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter(failure.error)
         });
-
-        // This is where we capture severe errors and bubble them up the
-        // stack. This section is only for run-time failures, and NOT for data
-        // related problems. Data related issues are handled through
-        // a different channel. The idea is that data or connectivity related
-        // issues in general are candidates for a retry procedure, whereas
-        // run-time issues should just terminate as program exceptions.
-
-        // Bubble up the error.
-        throw error;
     }
-    return response;
+
+    //} catch(error) {
+    //    log.error({
+    //        context: CONTEXT,
+    //        message: 'Failed to complete exchange request with the following exception:\n{0}: {1}'
+    //            .stringFormatter(error.name, error.message)
+    //    });
+    //
+    //    // This is where we capture severe errors and bubble them up the
+    //    // stack. This section is only for run-time failures, and NOT for data
+    //    // related problems. Data related issues are handled through
+    //    // a different channel. The idea is that data or connectivity related
+    //    // issues in general are candidates for a retry procedure, whereas
+    //    // run-time issues should just terminate as program exceptions.
+    //
+    //    // Bubble up the error.
+    //    throw error;
+    //}
+    //return response;
 }
 //}}}1
 
@@ -180,6 +178,7 @@ async function getExchangeData(id, pair, symbols) {
     let doRetryExchangeDataExport = config.get('CACHE_EXPORT_RETRY_ENABLED');
     let isExchangeDataExportSuccess = false;
 
+    //{{{1
     async function importExchangeData(exchange, pair, symbols){
         // Structured Payload
         let exchangeData = {
@@ -201,9 +200,23 @@ async function getExchangeData(id, pair, symbols) {
         console.log('[2] RETURN RESULTS');
         return exchangeData;
     }
+    //}}}1
 
-    exchangeData = await importExchangeData(EXCHANGE, 'EUR', ['XLM', 'XMR']);
-    console.log(exchangeData);
+    // Mock Request
+    // try {
+    //     const ticker = await mockdata.fetchTicker('XLM_EUR');
+    //     console.log('---(RESULT)---\n', ticker, '\n--------------');
+    // } catch(error) {
+    //     log.severe({
+    //         context: CONTEXT,
+    //         message: ('Exchange data import has failed due to an internal error:\n'+error)
+    //     });
+    // }
+
+    // Change 'USD' to 'EUR' to avoid errors.
+    exchangeData = await importExchangeData(EXCHANGE, 'USD', ['XLM', 'XMR']);
+    console.log('RESULT:', exchangeData);
+
     /* {{{3 (DISABLED)
     try {
         let exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS);
