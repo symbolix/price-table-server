@@ -4,13 +4,22 @@
 // Project Imports
 const ccxt = require ('ccxt');
 const fs = require('fs');
+const { ExchangeNotAvailable, ExchangeError, DDoSProtection } = require ('ccxt/js/base/errors');
 
 // Local Imports
 var logging = require('./logging');
 var mockdata = require('./mock-data');
+const { MockExchangeError } = require('./errors');
 
 // Logging
 const log = logging.getLogger();
+
+const retryExceptions = [
+    ExchangeNotAvailable,
+    ExchangeError,
+    DDoSProtection,
+    MockExchangeError
+];
 
 /* Private Functions */
 
@@ -80,6 +89,27 @@ async function _writeState(filepath, data) {
         );
         */
     });
+}
+// }}}1
+
+// @private isReservedException(array, exception) {{{1
+//
+//  ARGS:
+//      array    : an array of reserved exception objects
+//      exception: an exception object.
+//  INFO:
+//      A private function to test if an exception is part of reserved
+//      exceptions.
+//
+function isReservedException(reservedExceptions, exception) {
+    let arrayLength = reservedExceptions.length;
+    let state = false;
+    for (var i=0; i < arrayLength; i++){
+        if(exception instanceof reservedExceptions[i]){
+            state  = true;
+        }
+    }
+    return state;
 }
 // }}}1
 
@@ -384,10 +414,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            // const ticker = await exchange.fetchTicker(symbol);
+            const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            const ticker = await mockdata.fetchTicker(symbol);
+            // const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,
@@ -404,25 +434,39 @@ async function sendExchangeRequest(id, pair, symbols){
                 success: true
             };
 
-        } catch (failure) { // catch the error (if any) and handle it or ignore it
-            // The structure of the exception is: e.constructor.name, e.message
-            // console.log('---\n', failure, '\n---');
+        } catch (error) { // catch the error (if any) and handle it or ignore it
+            if(isReservedException(retryExceptions, error)){
+                // Soft Error, we can come back and retry.
+                log.error({
+                    context: CONTEXT,
+                    message: 'Data request for [{0}] on [{1}] has failed with the following exception:\n{2}: {3}'
+                        .stringFormatter(symbol, exchange.id, error.name, error.message)
+                });
+
+                // We still need to maintain a consistent carriage container.
+                // For that reason place holder data is created
+                processData.assets[entryKey] = {
+                    symbol: symbol,
+                    timestamp: Date.now(),
+                    last: null,
+                    success: false
+                };
+                // Flag the whole request as unsuccessful.
+                processSuccess = false;
+
+                // Drop exception and move on.
+                break;
+            }
+
+            // Hard Error, meaning we need to terminate, no point in retrying.
             log.error({
                 context: CONTEXT,
-                message: 'Data request for [{0}] on [{1}] has failed with the following exception:\n{2}: {3}'
-                    .stringFormatter(symbol, exchange.id, failure.name, failure.message)
+                message: 'Request for [{0}] on [{1}] has failed with the following exception:\n{2}: {3}'
+                    .stringFormatter(symbol, exchange.id, error.name, error.message)
             });
 
-            // We still need to maintain a consistent carriage container.
-            // For that reason place holder data is created
-            processData.assets[entryKey] = {
-                symbol: symbol,
-                timestamp: Date.now(),
-                last: null,
-                success: false
-            };
-            // Flag the whole request as unsuccessful.
-            processSuccess = false;
+            // Terminate
+            throw error;
         }
     }
 

@@ -213,9 +213,22 @@ async function getExchangeData(id, pair, symbols) {
     //     });
     // }
 
+    let ticker;
+    try {
+        //ticker = await mockdata.fetchTicker('XLM/EUR');
+        exchangeData = await utils.sendExchangeRequest(EXCHANGE, 'USD', ['XLM', 'XMR']);
+        // console.log('RESULT:', ticker);
+        console.log('RESULT:', exchangeData);
+    } catch(error) {
+        log.severe({
+            context: CONTEXT,
+            message: ('Ticker request has failed.\n' + error)
+        });
+    }
+
     // Change 'USD' to 'EUR' to avoid errors.
-    exchangeData = await importExchangeData(EXCHANGE, 'USD', ['XLM', 'XMR']);
-    console.log('RESULT:', exchangeData);
+    // exchangeData = await importExchangeData(EXCHANGE, 'USD', ['XLM', 'XMR']);
+    // console.log('RESULT:', exchangeData);
 
     /* {{{3 (DISABLED)
     try {

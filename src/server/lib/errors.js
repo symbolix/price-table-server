@@ -1,6 +1,7 @@
 'use strict';
 // lib/mock-data.js
 
+// A custom error allocated for out mock-data error.
 class MockExchangeError extends Error {
     constructor(message, cause) {
         super(message);
@@ -11,6 +12,7 @@ class MockExchangeError extends Error {
     }
 }
 
+// Exports
 module.exports = {
-    MockExchangeError: MockExchangeError
+    MockExchangeError: MockExchangeError,
 };

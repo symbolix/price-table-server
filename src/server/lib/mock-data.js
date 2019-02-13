@@ -227,23 +227,26 @@ let mockData = {
 function queryMockTickers(symbol){
     // Promisify the request.
     return new Promise((resolve, reject) => {
-        let result;
-
-        // Emulate an asynchronous fetch.
-        setTimeout(() => {
-            result = mockTickers[symbol];
-            try {
-                if(result==undefined){
-                    let message = `Ticker [${symbol}] is NOT found.`;
-                    let error = new MockExchangeError(message, 'TickerNotFound');
+        try {
+            // Emulate an asynchronous fetch.
+            setTimeout(() => {
+                let result;
+                try {
+                    result = mockTickers[symbol];
+                    if(result==undefined){
+                        let message = `Ticker [${symbol}] is NOT found.`;
+                        let error = new MockExchangeError(message, 'TickerNotFound');
+                        reject(error);
+                    }else{
+                        resolve(result);
+                    }
+                } catch (error) {
                     reject(error);
-                }else{
-                    resolve(result);
                 }
-            } catch (error) {
-                reject(error);
-            }
-        }, 500);
+            }, 500);
+        } catch(error) {
+            reject(error);
+        }
     });
 }
 //}}}1
@@ -284,9 +287,9 @@ function moduleTest(){
 //
 async function fetchTicker(symbol) {
     // We need to switch the separator here.
-    let symbolSeparator = symbol.replace('/', '_');
-    let data;
     try {
+        let symbolSeparator = symbol.replace('/', '_');
+        let data;
         // Make the async call.
         data = await queryMockTickers(symbolSeparator);
         return data;
