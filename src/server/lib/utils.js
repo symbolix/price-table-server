@@ -414,10 +414,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            const ticker = await exchange.fetchTicker(symbol);
+            // const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            // const ticker = await mockdata.fetchTicker(symbol);
+            const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,
@@ -433,7 +433,6 @@ async function sendExchangeRequest(id, pair, symbols){
                 last: ticker['last'],
                 success: true
             };
-
         } catch (error) { // catch the error (if any) and handle it or ignore it
             if(isReservedException(retryExceptions, error)){
                 // Soft Error, we can come back and retry.
@@ -455,7 +454,7 @@ async function sendExchangeRequest(id, pair, symbols){
                 processSuccess = false;
 
                 // Drop exception and move on.
-                break;
+                continue;
             }
 
             // Hard Error, meaning we need to terminate, no point in retrying.
