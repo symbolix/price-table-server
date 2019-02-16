@@ -414,10 +414,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            // const ticker = await exchange.fetchTicker(symbol);
+            const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            const ticker = await mockdata.fetchTicker(symbol);
+            // const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,
@@ -464,7 +464,7 @@ async function sendExchangeRequest(id, pair, symbols){
                     .stringFormatter(symbol, exchange.id, error.name, error.message)
             });
 
-            // Terminate
+            // Terminate, nothing will be returned.
             throw error;
         }
     }
@@ -473,7 +473,7 @@ async function sendExchangeRequest(id, pair, symbols){
     processData.signature['timestamp'] = Date.now();
     processData.signature['success'] = processSuccess;
 
-    // Output
+    // Output, return partial or complete data.
     return processData;
 }
 // }}}1

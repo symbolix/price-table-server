@@ -16,9 +16,9 @@ const mockdata = require('./lib/mock-data');
 // Symbols {{{1
 const SYMBOLS = [
     'BTC',
-    'ETF',
+    'ETH',
     'ZEC',
-    'LTX',
+    'LTC',
     'XMR',
     'DASH',
     'EOS',
@@ -43,140 +43,67 @@ const log = logging.getLogger();
 
 !config.get('SILENT') && console.log(`\nTest Error Handling v0.0.1.[2]`);
 
-// @public async getExchangeData(id, pair, symbols) {{{1
+// @public async fetchExchangeData(id, pair, symbols, passThrough) {{{1
 //
 //  ARGS:
-//      id: The exchange id.
-//      pair: A fiat pair code.
-//      symbols: An array of asset ticker symbols.
+//      id: The exchange id
+//      pair: A fiat pair code
+//      symbols: An array of asset ticker symbols
+//      passThrough: Boolean, allows partial data tobe returned
 //  INFO:
-//      This is a wrapped async call with a fetch.
+//      This is an async fetch call wrapping the exchange request.
 //
-async function getExchangeData(id, pair, symbols, {doRetry=false, retryLimit=-1}, {retryState=false, retryCounter=-1}) {
-    const CONTEXT = 'getExchangeData';
-    let response;
-    let isSuccess = false;
+const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
+    const CONTEXT = 'fetchExchangeData';
+    let response = false;
 
-    // Are we in a retrying state?
-    if(retryState){
-        // We are inside a retry cycle.
-        if(retryCounter > retryLimit){
-            // Abort the current retry step in case we reached the retry limit.
-            log.severe({
-                context: CONTEXT,
-                message: 'Exchange data request retry limit reached with NO success.\nGiving up.'
-            });
-
-            // Return
-            return false;
-        }else{
-            // Broadcast our intentions to repeat the request.
-            log.warning({
-                context: CONTEXT,
-                verbosity: 2,
-                message: 'Exchange data request was incomplete and needs to be repeated.'
-            });
-
-            // Continue with this step as a retry step.
-            log.label({
-                verbosity: 1,
-                colour: cyan.inverse,
-                message: 'exchange_data_import [RETRY {0} of {1}] ({2})'.stringFormatter(retryCounter, retryLimit, 'START')
-            });
-        }
-    }else{
-        // Not a retry cycle, just the first run.
-        retryCounter = 0;
-
-        // Non-retry label.
-        log.label({
-            verbosity: 1,
-            colour: cyan.inverse,
-            message: 'exchange_data_import ({0})'.stringFormatter('START')
-        });
-    }
-
-    // Make the call.
     try {
-        // Make an async promise call. The await is needed here otherwise the
-        // process will not be set to wait until the cache file is imported.
+        // Make the async call and wait for the response.
         response = await utils.sendExchangeRequest(id, pair, symbols);
 
-        // On Success:
-        //      All data requests are fulfilled or partially fulfilled with
-        //      soft errors.
-
-        // Examine the exchange data object.
-        if(response.signature.success){
-            // Complete Success
+        if(!response){
+            // In case the response is silent.
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('SUCCESS')
+                message: 'FETCH_REQUEST_STATUS: {0}'.stringFormatter('FALSE')
             });
-
-            // Success Label
-            log.label({
-                verbosity: 1,
-                colour: cyan.inverse,
-                message: 'exchange_data_import ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
-            });
-
-            // Update the state flag.
-            isSuccess = true;
         }else{
-            // Partial Success, Soft Failure
-            log.debug({
-                context: CONTEXT,
-                message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('FAILURE')
-            });
+            // There is a response, but might be partial.
+            if(!response.signature.success){
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'FETCH_REQUEST_STATUS: {0}'.stringFormatter('PARTIAL')
+                });
+                // Tolerance check.
+                if(!response.signature.success && !passThrough){
+                    // In cases where it is crucial to get a complete response for
+                    // all of the requests, we should not be leaking the partial
+                    // results.
 
-            // Error Label
-            log.label({
-                verbosity: 1,
-                colour: red.inverse,
-                message: 'exchange_data_import ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
-            });
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'PASS_THROUGH_FLAG is [{0}]: No partial results allowed.'.stringFormatter(passThrough.toString())
+                    });
 
-            // Update the state flag.
-            isSuccess = false;
-            if(doRetry){
-                // In cases where it is crucial to get a compplete response for
-                // all of the requests, we should not be leaking the partial
-                // results.
-                response = false;
+                    // Suppress partial responses.
+                    response = false;
+                }
+            }else{
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'FETCH_REQUEST_STATUS: {0}'.stringFormatter('COMPLETE')
+                });
             }
         }
-
-        // Handle Retries
-        if(!isSuccess && doRetry){
-            // Update counter.
-            retryCounter ++;
-
-            // Recursive Retry Loop
-            await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
-                {
-                    doRetry: true,
-                    retryLimit: retryLimit
-                },
-                {
-                    retryState: true,
-                    retryCounter: retryCounter
-                }
-            );
-        }
     } catch (failure) {
-        // On Failure:
-        //      This is where we capture severe errors and bubble them up the
-        //      stack. This section is only for run-time failures, and NOT for data
-        //      related problems. Data related issues are handled through
-        //      a different channel. The idea is that data or connectivity related
-        //      issues in general are candidates for a retry procedure, whereas
-        //      run-time issues should just terminate as program exceptions.
-
+        // On Failure
         log.error({
             context: CONTEXT,
-            message: ('Failed to complete exchange request.')
+            message: ('Failed to complete exchange fetch request.')
         });
 
         // Bubble up the error and terminate.
@@ -186,9 +113,123 @@ async function getExchangeData(id, pair, symbols, {doRetry=false, retryLimit=-1}
 
     // Return the response.
     return response;
-}
+};
 //}}}1
 
+// @public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
+//
+//  ARGS:
+//      id: The exchange id
+//      pair: A fiat pair code
+//      symbols: An array of asset ticker symbols
+//      retryLimit: Number of the possible retry attempts
+//      allowPartial: Boolean, will allow partial responses and will not
+//          enforce a retry operation.
+//  INFO:
+//      This is a wrapped async call with a fetch.
+//
+// (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)
+//
+const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPartial = false }) => {
+
+    // Initialise
+    let response, success;
+    const CONTEXT = 'getExchangeData';
+
+    // Cycle
+    for (let i = 0; i < retryLimit; i++) {
+        try {
+            // Start Label
+            log.label({
+                verbosity: 1,
+                colour: cyan.inverse,
+                message: 'exchange_data_import [ATTEMPT {0} of {1}] ({2})'.stringFormatter((i+1), retryLimit, 'START')
+            });
+
+            // Request
+            response = await fetchExchangeData(id, pair, symbols, { passThrough: allowPartial });
+
+            // Evaluate
+            if(response){
+                if(response.signature.success){
+                    // Status Flag
+                    success = true;
+
+                    // Complete Success
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('SUCCESS')
+                    });
+
+                    // Success Label
+                    log.label({
+                        verbosity: 1,
+                        colour: cyan.inverse,
+                        message: 'exchange_data_import [SUCCESS] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                    });
+
+                }else{
+                    // Status Flag
+                    success = allowPartial ? true : false;
+
+                    // Partial Success, Soft Failure
+                    log.debug({
+                        context: CONTEXT,
+                        message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('INCOMPLETE')
+                    });
+
+                    // Error Label
+                    log.label({
+                        verbosity: 1,
+                        colour: red.inverse,
+                        message: 'exchange_data_import [INCOMPLETE] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                    });
+                }
+            }else{
+                // Status Flag
+                success = false;
+
+                // Error Label
+                log.label({
+                    verbosity: 1,
+                    colour: red.inverse,
+                    message: 'exchange_data_import [FAILED] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                });
+            }
+
+            // Evaluate
+            if(!success){
+                const isLastAttempt = i + 1 === retryLimit;
+                if(isLastAttempt){
+                    // Abort the current retry step in case we reached the retry limit.
+                    log.severe({
+                        context: CONTEXT,
+                        message: 'Retry limit reached with NO success. Giving up.'
+                    });
+
+                    // Rise an exception
+                    throw new Error('Partial exchange data is NOT allowed.');
+                }
+            }else{
+                // Return
+                return response;
+            }
+        } catch (failure) {
+            // On Failure:
+
+            log.error({
+                context: CONTEXT,
+                message: ('Failed to complete exchange request.')
+            });
+
+            // Bubble up the error and terminate.
+            // Let the outer try/catch handle the message and the stack.
+            throw failure;
+        }
+    }
+};
+//}}}1
 
 /*------;
  ; MAIN ;
@@ -201,11 +242,10 @@ async function getExchangeData(id, pair, symbols, {doRetry=false, retryLimit=-1}
     let doExchangeDataCaching = false;
 
     // Importing
-    let doRetryExchangeDataImport = config.get('EXCHANGE_DATA_IMPORT_RETRY_ENABLED');
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
 
     // Exporting
-    let doRetryExchangeDataExport = config.get('EXCHANGE_DATA_EXPORT_RETRY_ENABLED');
+    let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
 
     console.log('[0] START');
 
@@ -213,10 +253,10 @@ async function getExchangeData(id, pair, symbols, {doRetry=false, retryLimit=-1}
         console.log('[1] CALL EXCHANGE');
 
         // Make the data request, so that we can create a state cache.
-        exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS, {
-            doRetry: doRetryExchangeDataImport,
-            retryLimit: exchangeDataImportRetryLimit
-        }, {});
+        exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
+            { retryLimit: exchangeDataImportRetryLimit },
+            { allowPartial: false }
+        );
 
         // We need a complete exchange data response here.
         if(!exchangeData){
@@ -224,12 +264,13 @@ async function getExchangeData(id, pair, symbols, {doRetry=false, retryLimit=-1}
         }
 
         console.log('[2] DISPLAY RESULT');
-        console.log('RESULT:', exchangeData);
+        console.log('__SUCCESS__');
+        // console.log('RESULT:', exchangeData);
     } catch(error) {
         // Hard Error, terminate.
         log.severe({
             context: CONTEXT,
-            message: ('Exchange data request has failed.\n', error.stack)
+            message: ('Exchange data request has failed.\n' + error.stack)
         });
     }
 })();

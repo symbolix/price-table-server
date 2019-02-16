@@ -10,8 +10,6 @@ var resources = {
         console: true,
         logfile: false
     },
-    EXCHANGE_DATA_IMPORT_RETRY_ENABLED: true,
-    EXCHANGE_DATA_EXPORT_RETRY_ENABLED: true,
     EXCHANGE_DATA_IMPORT_RETRY_LIMIT: 2,
     EXCHANGE_DATA_EXPORT_RETRY_LIMIT: 2,
     STATE_CACHE_FILE_AGE_LIMIT: {

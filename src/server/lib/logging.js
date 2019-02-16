@@ -237,7 +237,7 @@ function logger(){
 
             // No need for a verbosity product here.
             // But we need some formatting work.
-            labels.configure()(''.padStart(56) + colour(''.padEnd(3, '-') + ' [' + message + '] ' + ''.padStart(3, '-')));
+            labels.configure()(''.padStart(56) + colour(''.padEnd(3, '-') + ' <' + message + '> ' + ''.padStart(3, '-')));
         }
     };
     //}}}2
