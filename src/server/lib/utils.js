@@ -76,7 +76,8 @@ async function _writeState(filepath, data) {
                     context: CONTEXT,
                     message: 'File write request has failed for: {0}'.stringFormatter(filepath)
                 });
-                // setTimeout(function() { reject(err); }, 3000);
+                // Filter access errors so we can support retrying.
+                // TODO: Might need some more codes here.
                 if (err.code === 'EACCES') {
                     reason = new FileStreamError(err,'I/O Failure has occured');
                 } else {
@@ -89,7 +90,6 @@ async function _writeState(filepath, data) {
                     verbosity: 7,
                     message: 'File write request was successful for: {0}'.stringFormatter(filepath)
                 });
-                // setTimeout(function() { resolve(true); }, 3000);
                 resolve(true);
             }
         })
