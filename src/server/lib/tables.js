@@ -2,7 +2,7 @@
 
 // Project Imports
 const { cyan, red, green } = require ('ansicolor');
-const {table} = require('table');
+const { table } = require('table');
 
 /* Public Functions */
 
@@ -26,7 +26,6 @@ function exchangeRequestAsTable(dataObject){
     // Initialize
     let contentData;
     let data = [];
-    let entryCounter, failState;
 
     // Insert the header.
     data.push(header);
@@ -34,31 +33,20 @@ function exchangeRequestAsTable(dataObject){
     // Iterate and distribute.
     Object.values(dataObject).forEach( (value) => {
         contentData = [];
-        entryCounter = 0;
+        let entryCounter = 0;
         Object.entries(value).forEach( (entry) => {
             let item = entry[1];
-            contentData.push(item);
             if(typeof item === 'boolean'){
-                // For failed items.
-                if(!item){
-                    let modifiedContentData = [];
-                    for (var i = 0; i < contentData.length; i++) {
-                        let contentItem = red(contentData[i]);
-                        modifiedContentData.push(contentItem);
-                    }
-                    // Override the content data container.
-                    contentData = modifiedContentData;
-                }
+                // For boolean items.
+                item = item ? green(item) : red(item);
             }
-
             // Increment item counter.
+            contentData.push(item);
             ++entryCounter;
         });
-
         // Store the current row.
         data.push(contentData);
     });
-
     // Return the result.
     return data;
 }

@@ -4,7 +4,7 @@
 // Project Imports
 const ccxt = require ('ccxt');
 const fs = require('fs');
-const { ExchangeNotAvailable, ExchangeError, DDoSProtection } = require ('ccxt/js/base/errors');
+const { ExchangeNotAvailable, ExchangeError, DDoSProtection, RequestTimeout } = require ('ccxt/js/base/errors');
 
 // Local Imports
 var logging = require('./logging');
@@ -14,10 +14,13 @@ const { MockExchangeError } = require('./errors');
 // Logging
 const log = logging.getLogger();
 
+// These are specific ERROR types defined by the ccxt API. Most of these have
+// been tested and added to this list of soft-errors that should be retried.
 const retryExceptions = [
     ExchangeNotAvailable,
     ExchangeError,
     DDoSProtection,
+    RequestTimeout,
     MockExchangeError
 ];
 
@@ -223,7 +226,7 @@ async function readState(filepath, callback){
 // @public timeDiff(date1, date2)
 //      date1: first date object.
 //      date2: second date object.
-//      https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds
+//      (https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds)
 // {{{1
 function timeDiff(date1, date2){
     var res = Math.abs(date1 - date2) / 1000;
@@ -414,10 +417,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            const ticker = await exchange.fetchTicker(symbol);
+            // const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            // const ticker = await mockdata.fetchTicker(symbol);
+            const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,

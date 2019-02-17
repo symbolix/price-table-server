@@ -103,7 +103,7 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
         // On Failure
         log.error({
             context: CONTEXT,
-            message: ('Failed to complete exchange fetch request.')
+            message: ('Failed to complete exchange FETCH request.')
         });
 
         // Bubble up the error and terminate.
@@ -220,7 +220,103 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
 
             log.error({
                 context: CONTEXT,
-                message: ('Failed to complete exchange request.')
+                message: ('Incomplete exchange DATA request.')
+            });
+
+            // Bubble up the error and terminate.
+            // Let the outer try/catch handle the message and the stack.
+            throw failure;
+        }
+    }
+};
+//}}}1
+
+// @public async exportExchangeData(filepath, stateData, retryLimit) {{{1
+//
+//  ARGS:
+//      filepath    : Path to the JSON cache file
+//      stateData   : Data object
+//      retryLimit  : Number of the possible retry attempts
+//  INFO:
+//      This is a wrapped async call with a send.
+//
+const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
+
+    // Initialise
+    let send, success;
+    const CONTEXT = 'exportExchangeData';
+
+    // Cycle
+    for (let i = 0; i < retryLimit; i++) {
+        try {
+            // Start Label
+            log.label({
+                verbosity: 1,
+                colour: white.inverse,
+                message: 'exchange_data_export [ATTEMPT {0} of {1}] ({2})'.stringFormatter((i+1), retryLimit, 'START')
+            });
+
+            // Send
+            send = await sendStateCache(filepath, data);
+
+            if(send){
+                // On SUCCESS, update status flag.
+                success = true;
+
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'CACHE_EXPORT_STATUS: {0}'.stringFormatter('SUCCESS')
+                });
+
+                // Success Label
+                log.label({
+                    verbosity: 1,
+                    colour: white.inverse,
+                    message: 'exchange_data_export [SUCCESS] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                });
+
+                // Return
+                return true;
+            }else{
+                // On FAILURE, update status flag.
+                success = false;
+
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'CACHE_EXPORT_STATUS: {0}'.stringFormatter('FAILURE')
+                });
+            }
+
+            // Error Label
+            log.label({
+                verbosity: 1,
+                colour: red.inverse,
+                message: 'exchange_data_export [FAILED] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+            });
+
+            // Evaluate
+            if(!success){
+                const isLastAttempt = i + 1 === retryLimit;
+                if(isLastAttempt){
+                    // Abort the current retry step in case we reached the retry limit.
+                    log.severe({
+                        context: CONTEXT,
+                        message: 'Retry limit reached with NO success. Giving up.'
+                    });
+
+                    // Rise an exception
+                    throw new Error('Unable to export exchange data.');
+                }
+            }else{
+                // Return
+                return success;
+            }
+        }catch(failure){
+            log.error({
+                context: CONTEXT,
+                message: 'Exchange DATA export stage has failed.'
             });
 
             // Bubble up the error and terminate.
@@ -243,14 +339,21 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
 
     // Importing
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
+    let exchangeDataImportIsSuccess;
 
     // Exporting
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
+    let exchangeDataExportIsSuccess;
 
-    console.log('[0] START');
+    /*---------------------------;
+    ; Exchange Data Cache Import ;
+    ;---------------------------*/
+
+    /*----------------------;
+    ; Exchange Data Request ;
+    ;----------------------*/
 
     try {
-        console.log('[1] CALL EXCHANGE');
 
         // Make the data request, so that we can create a state cache.
         exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
@@ -258,21 +361,49 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
             { allowPartial: false }
         );
 
-        // We need a complete exchange data response here.
+        // Exchange Data Request Failure
+
         if(!exchangeData){
+            exchangeDataImportIsSuccess = false;
             throw new Error('Unable to import ticker data from: ' + EXCHANGE.toUpperCase());
         }
 
-        console.log('[2] DISPLAY RESULT');
-        console.log('__SUCCESS__');
-        // console.log('RESULT:', exchangeData);
+        // Exchange Data Request Success
+
+        // Store the exchange data inside the data container.
+        data.updateField('current', exchangeData.data);
+        exchangeDataImportIsSuccess = true;
+
     } catch(error) {
         // Hard Error, terminate.
         log.severe({
             context: CONTEXT,
-            message: ('Exchange data request has failed.\n' + error.stack)
+            message: ('Exchange data IMPORT has failed.\n' + error.stack)
         });
     }
+
+    /*---------------------;
+    ; Exchange Data Export ;
+    ;---------------------*/
+
+    try {
+        // Display the results as a table.
+        let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
+        let output = table(tableData);
+        let tableColour = exchangeData.signature.success ? cyan : yellow;
+        console.log(tableColour(output));
+
+        exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+            { retryLimit: exchangeDataExportRetryLimit },
+        );
+    } catch(error){
+        // Hard Error, terminate.
+        log.severe({
+            context: CONTEXT,
+            message: ('Exchange data EXPORT has failed.\n' + error.stack)
+        });
+    }
+
 })();
 
 // vim: fdm=marker ts=4
