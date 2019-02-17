@@ -9,7 +9,7 @@ const { ExchangeNotAvailable, ExchangeError, DDoSProtection, RequestTimeout } = 
 // Local Imports
 var logging = require('./logging');
 var mockdata = require('./mock-data');
-const { MockExchangeError } = require('./errors');
+const { MockExchangeError, FileStreamError } = require('./errors');
 
 // Logging
 const log = logging.getLogger();
@@ -68,30 +68,51 @@ async function _readState(filepath) {
 //
 async function _writeState(filepath, data) {
     const CONTEXT = '_writeState';
+    let reason;
     return new Promise(function(resolve, reject) {
-        reject(false);
-        /*
         fs.writeFile(filepath, JSON.stringify(data), ((err) => {
             if (err) {
                 log.error({
                     context: CONTEXT,
                     message: 'File write request has failed for: {0}'.stringFormatter(filepath)
                 });
-                setTimeout(function() { reject(false); }, 3000);
-                // reject(false);
+                // setTimeout(function() { reject(err); }, 3000);
+                if (err.code === 'EACCES') {
+                    reason = new FileStreamError(err,'I/O Failure has occured');
+                } else {
+                    reason = err;
+                }
+                reject(reason);
             } else {
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
                     message: 'File write request was successful for: {0}'.stringFormatter(filepath)
                 });
-                setTimeout(function() { resolve(true); }, 3000);
-                // resolve(true);
+                // setTimeout(function() { resolve(true); }, 3000);
+                resolve(true);
             }
         })
         );
-        */
     });
+    /*
+    try {
+        stream = await fetch(filepath);
+        console.log('> stream', stream);
+        log.error({
+            context: CONTEXT,
+            message: 'File write request has failed for: {0}'.stringFormatter(filepath)
+        });
+        setTimeout(function() { return false; }, 3000);
+    } catch(error) {
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'File write request was successful for: {0}'.stringFormatter(filepath)
+        });
+        throw error;
+    }
+    */
 }
 // }}}1
 
@@ -147,39 +168,55 @@ function moduleTest(){
 }
 //}}}1
 
-// @public async writeState(filepath, data, callback) {{{1
+// @public async writeState(filepath, data) {{{1
 //  ARGS:
 //      filepath: full or relative path to a state file.
 //      data    : A data container object.
 //  NOTE:
 //      A function to write a JSON cache file.
 //
-async function writeState(filepath, data, callback) {
+async function writeState(filepath, data) {
     const CONTEXT = 'writeState';
     let response;
-    // Make an async promise call. The await is needed here otherwise the
-    // process will not be set to wait until the cache file is imported.
-    await _writeState(filepath, data)
-        .then((result) => {
-            // On SUCCESS, return true.
-            log.info({
-                context: CONTEXT,
-                verbosity: 5,
-                message: 'State cache data export was successful for: {0}'.stringFormatter(filepath)
-            });
-            response = result;
-        })
-        .catch((failure) => {
-            // On FAILURE, return an error object.
-            log.error({
-                context: CONTEXT,
-                message: 'State cache data export has failed for: {0}'.stringFormatter(filepath)
-            });
-            response = failure;
+
+    try {
+        // Send the request.
+        response = await _writeState(filepath, data);
+
+        // On SUCCESS
+        log.info({
+            context: CONTEXT,
+            verbosity: 5,
+            message: 'State cache data export was successful for: {0}'.stringFormatter(filepath)
         });
 
-    // Callback
-    callback(response);
+        // Return the state.
+        return response;
+    } catch (failure) {
+        if(failure instanceof FileStreamError){
+            // Soft Error, we can come back and retry.
+            log.error({
+                context: CONTEXT,
+                message: 'Write request for [{0}] has failed with the following exception:\n{2}: {3}'
+                    .stringFormatter(filepath, failure.name, failure.message)
+            });
+
+            // Flag the whole request as unsuccessful.
+            response = false;
+
+            // Drop exception and move on.
+            return response;
+        }
+
+        // Hard Error, meaning we need to terminate, no point in retrying.
+        log.error({
+            context: CONTEXT,
+            message: ('Unable to complete data send request\n' + failure)
+        });
+
+        // Terminate, nothing will be returned.
+        throw failure;
+    }
 }
 // }}}1
 

@@ -116,6 +116,52 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
 };
 //}}}1
 
+// @public async sendStateCache(filepath, data) {{{1
+//
+//  ARGS:
+//      filepath: Path to the JSON cache file.
+//  INFO:
+//      This is a promise wrapper for the send cache request.
+//
+async function sendExchangeData(filepath, data) {
+    const CONTEXT = 'sendExchangeData';
+    let response;
+
+    try {
+        // Send the request.
+        response = await utils.writeState(filepath, data);
+        if(!response){
+            // Failure
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'SEND_DATA_STATUS: {0}'.stringFormatter('FALSE')
+            });
+        }else{
+            // Success
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'SEND_DATA_STATUS: {0}'.stringFormatter('COMPLETE')
+            });
+        }
+    } catch (failure) {
+        // On Failure
+        log.error({
+            context: CONTEXT,
+            message: ('Failed to complete data SEND request.')
+        });
+
+        // Bubble up the error and terminate.
+        // Let the outer try/catch handle the message and the stack.
+        throw failure;
+    }
+
+    // Return the response.
+    return response;
+}
+// }}}1
+
 // @public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
 //
 //  ARGS:
@@ -257,7 +303,7 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
             });
 
             // Send
-            send = await sendStateCache(filepath, data);
+            send = await sendExchangeData(filepath, stateData);
 
             if(send){
                 // On SUCCESS, update status flag.
@@ -371,7 +417,7 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
         // Exchange Data Request Success
 
         // Store the exchange data inside the data container.
-        data.updateField('current', exchangeData.data);
+        data.updateField('current', exchangeData);
         exchangeDataImportIsSuccess = true;
 
     } catch(error) {

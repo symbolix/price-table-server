@@ -12,7 +12,18 @@ class MockExchangeError extends Error {
     }
 }
 
+// A custom error allocated for file stream errors.
+class FileStreamError extends Error {
+    constructor(message, cause) {
+        super(message);
+        this.constructor = FileStreamError;
+        this.cause = cause;
+        this.name = 'FileStreamError';
+        this.message = '[' + cause + ']' + ': ' + message;
+    }
+}
 // Exports
 module.exports = {
     MockExchangeError: MockExchangeError,
+    FileStreamError: FileStreamError
 };
