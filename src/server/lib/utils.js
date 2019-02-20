@@ -35,6 +35,7 @@ const retryExceptions = [
 //
 async function _readState(filepath) {
     const CONTEXT = '_readState';
+    let reason;
     return new Promise(function(resolve, reject) {
         fs.readFile(filepath, 'utf8', function(err, data){
             if (err) {
@@ -42,15 +43,20 @@ async function _readState(filepath) {
                     context: CONTEXT,
                     message: 'File read request has failed for: {0}'.stringFormatter(filepath)
                 });
-                // setTimeout(function() { reject(err); }, 3000);
-                reject(err);
+                // Filter access errors so we can support retrying.
+                // TODO: Might need some more codes here.
+                if (err.code === 'ENOENT') {
+                    reason = new FileStreamError(err,'I/O Failure has occured');
+                } else {
+                    reason = err;
+                }
+                reject(reason);
             } else {
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
                     message: 'File read request was successful for: {0}'.stringFormatter(filepath)
                 });
-                // setTimeout(function() { resolve(data); }, 3000);
                 resolve(data);
             }
         });
@@ -95,24 +101,6 @@ async function _writeState(filepath, data) {
         })
         );
     });
-    /*
-    try {
-        stream = await fetch(filepath);
-        console.log('> stream', stream);
-        log.error({
-            context: CONTEXT,
-            message: 'File write request has failed for: {0}'.stringFormatter(filepath)
-        });
-        setTimeout(function() { return false; }, 3000);
-    } catch(error) {
-        log.debug({
-            context: CONTEXT,
-            verbosity: 7,
-            message: 'File write request was successful for: {0}'.stringFormatter(filepath)
-        });
-        throw error;
-    }
-    */
 }
 // }}}1
 
@@ -220,7 +208,7 @@ async function writeState(filepath, data) {
 }
 // }}}1
 
-// @public async readState(filepath, callback) {{{1
+// @public async readState(filepath) {{{1
 //
 //  ARGS:
 //      filepath: full or relative path to a state file.
@@ -228,35 +216,48 @@ async function writeState(filepath, data) {
 //  INFO:
 //      A promise wrapper for the JSON cache file request.
 //
-async function readState(filepath, callback){
-    let response = {};
+async function readState(filepath){
+    let response;
     const CONTEXT = 'readState';
 
-    // Make an async promise call. The await is needed here otherwise the
-    // process will not be set to wait until the cache file is imported.
-    await _readState(filepath)
-        .then((result) => {
-            // On SUCCESS, return the JSON object.
-            log.info({
-                context: CONTEXT,
-                verbosity: 5,
-                message: 'State cache file request was successful for: {0}'.stringFormatter(filepath)
-            });
-            response.data = JSON.parse(result);
-            response.error = 'None';
-        })
-        .catch((failure) => {
-            // On FAILURE, return an error object.
-            log.error({
-                context: CONTEXT,
-                message: 'State cache data request has failed with the following exception:\n{0}'.stringFormatter(failure.stack)
-            });
-            response.data = 'None';
-            response.error = failure;
+    try {
+        // Send the request.
+        response = JSON.parse(await _readState(filepath));
+
+        // On SUCCESS, return the JSON object.
+        log.info({
+            context: CONTEXT,
+            verbosity: 5,
+            message: 'State cache file request was successful for: {0}'.stringFormatter(filepath)
         });
 
-    // Callback
-    callback(response);
+        // Return the state.
+        return response;
+    } catch (failure) {
+        if(failure instanceof FileStreamError){
+            // Soft Error, we can come back and retry.
+            log.error({
+                context: CONTEXT,
+                message: 'Read request for [{0}] has failed with the following exception:\n{2}: {3}'
+                    .stringFormatter(filepath, failure.name, failure.stack)
+            });
+
+            // Flag the whole request as unsuccessful.
+            response = false;
+
+            // Drop exception and move on.
+            return response;
+        }
+
+        // Hard Error, meaning we need to terminate, no point in retrying.
+        log.error({
+            context: CONTEXT,
+            message: ('Unable to complete READ_STATE request\n' + failure)
+        });
+
+        // Terminate, nothing will be returned.
+        throw failure;
+    }
 }
 // }}}1
 

@@ -12,6 +12,7 @@ var resources = {
     },
     EXCHANGE_DATA_IMPORT_RETRY_LIMIT: 10,
     EXCHANGE_DATA_EXPORT_RETRY_LIMIT: 9999,
+    STATE_CACHE_IMPORT_RETRY_LIMIT: 9999,
     STATE_CACHE_FILE_AGE_LIMIT: {
         days: 0,
         hours: 0,

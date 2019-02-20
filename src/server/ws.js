@@ -43,13 +43,60 @@ const log = logging.getLogger();
 
 !config.get('SILENT') && console.log(`\nTest Error Handling v0.0.1.[2]`);
 
+// @public async fetchCachedData(filepath) {{{1
+//
+//  ARGS:
+//      filepath   : Path to the cache file
+//      passThrough: Boolean, allows partial data to be returned
+//  INFO:
+//      This is an async fetch call wrapping the cached date request.
+//
+const fetchCachedData = async (filepath) => {
+    const CONTEXT = 'fetchCachedData';
+    let response;
+
+    try {
+        // Send the request.
+        response = await utils.readState(filepath);
+
+        if(!response){
+            // Failure.
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'FETCH_CACHE_REQUEST_STATUS: {0}'.stringFormatter('FALSE')
+            });
+        }else{
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'FETCH_CACHE_REQUEST_STATUS: {0}'.stringFormatter('COMPLETE')
+            });
+        }
+    } catch (failure) {
+        // On Failure
+        log.error({
+            context: CONTEXT,
+            message: ('Failed to complete FETCH_CACHE_REQUEST.')
+        });
+
+        // Bubble up the error and terminate.
+        // Let the outer try/catch handle the message and the stack.
+        throw failure;
+    }
+
+    // Return the response.
+    return response;
+};
+//}}}1
+
 // @public async fetchExchangeData(id, pair, symbols, passThrough) {{{1
 //
 //  ARGS:
 //      id: The exchange id
 //      pair: A fiat pair code
 //      symbols: An array of asset ticker symbols
-//      passThrough: Boolean, allows partial data tobe returned
+//      passThrough: Boolean, allows partial data to be returned
 //  INFO:
 //      This is an async fetch call wrapping the exchange request.
 //
@@ -116,7 +163,7 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
 };
 //}}}1
 
-// @public async sendStateCache(filepath, data) {{{1
+// @public async sendExchangeData(filepath, data) {{{1
 //
 //  ARGS:
 //      filepath: Path to the JSON cache file.
@@ -161,6 +208,106 @@ async function sendExchangeData(filepath, data) {
     return response;
 }
 // }}}1
+
+// @public async getStateCache(filepath, allowPartial) {{{1
+//
+//  ARGS:
+//      filepath: File location for the state cache file.
+//      allowPartial: Boolean, will allow partial responses and will not
+//          enforce a retry operation.
+//  INFO:
+//      This is a wrapped async call with a fetch.
+//
+// (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)
+//
+const getStateCache = async (filepath, { retryLimit = 1 }) => {
+
+    // Initialise
+    let response, success;
+    const CONTEXT = 'getStateCache';
+
+    // Cycle
+    for (let i = 0; i < retryLimit; i++) {
+        try {
+            // Start Label
+            log.label({
+                verbosity: 1,
+                colour: green.inverse,
+                message: 'cached_state_import [ATTEMPT {0} of {1}] ({2})'.stringFormatter((i+1), retryLimit, 'START')
+            });
+
+            // Request
+            response = await fetchCachedData(filepath);
+
+            // Evaluate
+            if(response){
+                // Status Flag
+                success = true;
+
+                // Complete Success
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'CACHE_REQUEST_STATUS: {0}'.stringFormatter('SUCCESS')
+                });
+
+                // Success Label
+                log.label({
+                    verbosity: 1,
+                    colour: green.inverse,
+                    message: 'cached_state_import [SUCCESS] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                });
+            }else{
+                // Status Flag
+                success = false;
+
+                // Complete Success
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'CACHE_REQUEST_STATUS: {0}'.stringFormatter('FAILED')
+                });
+
+                // Error Label
+                log.label({
+                    verbosity: 1,
+                    colour: red.inverse,
+                    message: 'cached_state_import [FAILED] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+                });
+            }
+
+            // Evaluate
+            if(!success){
+                const isLastAttempt = i + 1 === retryLimit;
+                if(isLastAttempt){
+                    // Abort the current retry step in case we reached the retry limit.
+                    log.severe({
+                        context: CONTEXT,
+                        message: 'Retry limit reached with NO success. Giving up.'
+                    });
+
+                    // Rise an exception
+                    throw new Error('State cache data is required to proceed.');
+                }
+            }else{
+                // Return
+                return response;
+            }
+        } catch (failure) {
+            // On Failure:
+
+            log.error({
+                context: CONTEXT,
+                message: ('Incomplete state cache request.')
+            });
+
+            // Bubble up the error and terminate.
+            // Let the outer try/catch handle the message and the stack.
+            throw failure;
+        }
+    }
+};
+//}}}1
 
 // @public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
 //
@@ -385,7 +532,9 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 
     // Importing
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
+    let stateCacheImportRetryLimit = config.get('STATE_CACHE_IMPORT_RETRY_LIMIT');
     let exchangeDataImportIsSuccess;
+    let stateCacheImportIsSuccess;
 
     // Exporting
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
@@ -394,6 +543,27 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
     /*---------------------------;
     ; Exchange Data Cache Import ;
     ;---------------------------*/
+    try {
+        stateCacheImportIsSuccess = await getStateCache(globals.get('STATE_CACHE_FILE'),
+            { retryLimit: stateCacheImportRetryLimit }
+        );
+    } catch(error) {
+        // Hard Error, terminate.
+        log.error({
+            context: CONTEXT,
+            message: ('Cached state data import has failed.\n' + error.stack)
+        });
+
+        log.warning({
+            context: CONTEXT,
+            verbosity: 1,
+            message: ('Attempting to generation a new exchange state cache.')
+        });
+    }
+
+    //TODO: Continue with the new ExchangeDataRequest if only the 'current' field
+    //is available in the state cache. If that is the case, store the 'current' data
+    //as 'previous' data and save the new exchange request to the 'current' field.
 
     /*----------------------;
     ; Exchange Data Request ;
