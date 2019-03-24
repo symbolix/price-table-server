@@ -11,13 +11,13 @@ var resources = {
         logfile: false
     },
     EXCHANGE_DATA_IMPORT_RETRY_LIMIT: 10,
-    EXCHANGE_DATA_EXPORT_RETRY_LIMIT: 9999,
-    STATE_CACHE_IMPORT_RETRY_LIMIT: 9999,
+    EXCHANGE_DATA_EXPORT_RETRY_LIMIT: 9,
+    STATE_CACHE_IMPORT_RETRY_LIMIT: 9,
     STATE_CACHE_FILE_AGE_LIMIT: {
         days: 0,
-        hours: 0,
-        minutes: 15,
-        seconds: 0
+        hours: 12,
+        minutes: 59,
+        seconds: 59
     },
     /* This is the verbosity depth required by the function hosting the verbosity request.*/
     REQUIRED_VERBOSITY_DEPTH: 1,

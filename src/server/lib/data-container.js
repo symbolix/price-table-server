@@ -170,8 +170,28 @@ function getConfig(key){
 // updateField {{{1
 // A higher level wrapper method that modifies the FIELD section of our data container.
 // 'field' being one of the states: 'previous' or 'current'.
-function updateField(field, fieldObj){
-    dataObj.data[field] = fieldObj;
+function updateField(field, fieldObj, { forceGranularity = false }){
+    if(!forceGranularity){
+        console.log('FORCE_GRANULARITY:FALSE');
+        dataObj.data[field] = fieldObj;
+    }else{
+        console.log('FORCE_GRANULARITY:TRUE');
+        let storage = dataObj.data[field].assets;
+        let input = fieldObj.assets;
+        Object.keys(storage).forEach((key) => {
+            if(storage.hasOwnProperty(key) && input.hasOwnProperty(key)){
+                console.log(`Asset ${key} found.`);
+                if(fieldObj.assets[key].success){
+                    console.log(`\tIncoming data for ${key} is complete.`);
+                    storage[key] = input[key];
+                }else{
+                    console.log(`Skipping missing data for asset ${key}.`);
+                }
+            }else{
+                console.log(`Asset KEY missmatch for ${key}!`);
+            }
+        });
+    }
 }
 // }}}1
 

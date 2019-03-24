@@ -4,6 +4,10 @@
 const { cyan, white, red, green, yellow } = require ('ansicolor');
 const { table } = require('table');
 
+// A simple server-side script that serves a JSON object.
+var WebSocketServer = require('ws').Server;
+var wss = new WebSocketServer({ port: 9000 });
+
 // Local Imports
 const utils = require('./lib/utils');
 const data = require('./lib/data-container');
@@ -41,7 +45,7 @@ const log = logging.getLogger();
  ; Server Application ;
  ;--------------------*/
 
-!config.get('SILENT') && console.log(`\nTest Error Handling v0.0.1.[2]`);
+!config.get('SILENT') && console.log('\nTest Error Handling v0.0.1.[2]');
 
 // @public async fetchCachedData(filepath) {{{1
 //
@@ -57,27 +61,30 @@ const fetchCachedData = async (filepath) => {
 
     try {
         // Send the request.
+        // Expects a response object with the following structure:
+        //      { payload: obj, retry: boolean, state: boolean }
         response = await utils.readState(filepath);
 
-        if(!response){
+        if(!response.state){
             // Failure.
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'FETCH_CACHE_REQUEST_STATUS: {0}'.stringFormatter('FALSE')
+                message: 'CACHE_FETCH_STATUS: {0}'.stringFormatter('FAIL')
             });
         }else{
+            // Success
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'FETCH_CACHE_REQUEST_STATUS: {0}'.stringFormatter('COMPLETE')
+                message: 'CACHE_FETCH_STATUS: {0}'.stringFormatter('SUCCESS')
             });
         }
     } catch (failure) {
         // On Failure
         log.error({
             context: CONTEXT,
-            message: ('Failed to complete FETCH_CACHE_REQUEST.')
+            message: ('Failed to complete CACHE_FETCH_REQUEST.')
         });
 
         // Bubble up the error and terminate.
@@ -86,6 +93,7 @@ const fetchCachedData = async (filepath) => {
     }
 
     // Return the response.
+    // The returned object is {data: data, state: boolean}
     return response;
 };
 //}}}1
@@ -240,7 +248,7 @@ const getStateCache = async (filepath, { retryLimit = 1 }) => {
             response = await fetchCachedData(filepath);
 
             // Evaluate
-            if(response){
+            if(response.state){
                 // Status Flag
                 success = true;
 
@@ -248,7 +256,7 @@ const getStateCache = async (filepath, { retryLimit = 1 }) => {
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
-                    message: 'CACHE_REQUEST_STATUS: {0}'.stringFormatter('SUCCESS')
+                    message: 'CACHE_GET_STATUS: {0}'.stringFormatter('SUCCESS')
                 });
 
                 // Success Label
@@ -265,7 +273,7 @@ const getStateCache = async (filepath, { retryLimit = 1 }) => {
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
-                    message: 'CACHE_REQUEST_STATUS: {0}'.stringFormatter('FAILED')
+                    message: 'CACHE_GET_STATUS: {0}'.stringFormatter('FAIL')
                 });
 
                 // Error Label
@@ -279,23 +287,28 @@ const getStateCache = async (filepath, { retryLimit = 1 }) => {
             // Evaluate
             if(!success){
                 const isLastAttempt = i + 1 === retryLimit;
+                if(!response.retry){
+                    console.log('MISSING_FILE or TRUNCATED_DATA, no need to retry.');
+                    break;
+                }
                 if(isLastAttempt){
                     // Abort the current retry step in case we reached the retry limit.
-                    log.severe({
+                    log.error({
                         context: CONTEXT,
                         message: 'Retry limit reached with NO success. Giving up.'
                     });
 
                     // Rise an exception
-                    throw new Error('State cache data is required to proceed.');
+                    // Throw an exception? No, we should move on and re-cache
+                    // the state cache file.
+                    // throw new Error('State cache data is required to proceed.');
                 }
             }else{
                 // Return
-                return response;
+                return response.payload;
             }
         } catch (failure) {
             // On Failure:
-
             log.error({
                 context: CONTEXT,
                 message: ('Incomplete state cache request.')
@@ -520,6 +533,413 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 };
 //}}}1
 
+// validateCache(id) {{{1
+function validateCache(cache) {
+    let result = {
+        current: false,
+        previous: false,
+        upToDate: false
+    };
+
+    try {
+        if (cache.data.current.signature.success) {
+            console.log('CURRENT.OK');
+            result.current = true;
+        } else {
+            console.log('CURRENT.NOT_OK');
+            result.current = false;
+        }
+
+        if (cache.data.previous.signature.success) {
+            console.log('PREVIOUS.OK');
+            result.previous = true;
+        } else {
+            console.log('PREVIOUS.NOT_OK');
+            result.previous = false;
+        }
+
+        // Check the incoming state for the required properties.
+        if (cache.data.current.signature.hasOwnProperty('timestamp') && result.current) {
+
+            let stateCacheTime = new Date(cache.data.current.signature.timestamp);
+            let currentTime = new Date();
+
+            // DEBUG: Test dates.
+            // let stateCacheTime = new Date('Jan 6, 2019 19:15:28');
+            // let currentTime = new Date('Jan 6, 2019 19:30:27');
+
+            // Debug
+            console.log('CURRENT_TIME:', currentTime, 'STATE_CACHE_TIME', stateCacheTime);
+
+            // Get timestamp difference.
+            let diff = utils.timeDiff(currentTime, stateCacheTime);
+
+            // Debug
+            console.log('STATE_CACHE is',
+                diff.days, 'days',
+                diff.hours,'hours',
+                diff.minutes, 'minutes and',
+                diff.seconds, 'seconds old.');
+
+            // Debug
+            console.log('AGE_LIMIT for the STATE_CACHE is',
+                config.get('STATE_CACHE_FILE_AGE_LIMIT').days, 'days',
+                config.get('STATE_CACHE_FILE_AGE_LIMIT').hours,'hours',
+                config.get('STATE_CACHE_FILE_AGE_LIMIT').minutes, 'minutes and',
+                config.get('STATE_CACHE_FILE_AGE_LIMIT').seconds, 'seconds.');
+
+            // Validate state-cache age.
+            if(diff.isOld(config.get('STATE_CACHE_FILE_AGE_LIMIT'), diff)){
+                console.log('STATE_CACHE_DATA is out of date.');
+                result.upToDate = false;
+            } else {
+                console.log('STATE_CACHE_DATA is valid.');
+                result.upToDate = true;
+            }
+        } else {
+            throw new Error('Invalid STATE_CACHE_DATA.');
+        }
+    } catch (error) {
+        console.log('FATAL:', error);
+    }
+
+    // Return
+    return result;
+}
+// }}}1
+
+// DEV //
+
+// runClock {{{1
+function runClock() {
+    var now = new Date();
+    var timeToNextTick = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    setTimeout(function() {
+        // DEV: Re-enable the actual function here.
+        update(false);
+        // mockUpdate(false);
+        runClock();
+    }, timeToNextTick);
+}
+// }}}1
+
+// mockUpdate {{{1
+function mockUpdate(showSeconds) {
+    var now = new Date();
+    var hours = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+    if (!showSeconds) {
+        // round the minutes
+        if (seconds > 30) {
+            ++minutes;
+            if (minutes >= 60) {
+                minutes -= 60;
+                ++hours;
+                if (hours >= 24) {
+                    hours = 0;
+                }
+            }
+        }
+    }
+    var str = (hours) + ':' + twoDigits(minutes);
+    if (showSeconds) {
+        str += ':' + twoDigits(seconds);
+    }
+    /* Websocket Emission */
+    // Prepare payload object based on the current and previous data.
+    let payload = utils.generatePayload(globals.get('MOCK_DATA'));
+
+    // This is the REAL emission, enable this!
+    activeEmission(payload);
+}
+// }}}1
+
+// twoDigits {{{1
+function twoDigits(val) {
+    val = val + '';
+    if (val.length < 2) {
+        val = '0' + val;
+    }
+    return val;
+}
+// }}}1
+
+// Update {{{1
+const update = async (showSeconds) => {
+    let CONTEXT = 'update';
+
+    var now = new Date();
+    var hours = now.getHours();
+    var minutes = now.getMinutes();
+    var seconds = now.getSeconds();
+    if (!showSeconds) {
+        // round the minutes
+        if (seconds > 30) {
+            ++minutes;
+            if (minutes >= 60) {
+                minutes -= 60;
+                ++hours;
+                if (hours >= 24) {
+                    hours = 0;
+                }
+            }
+        }
+    }
+    var str = (hours) + ':' + twoDigits(minutes);
+    if (showSeconds) {
+        str += ':' + twoDigits(seconds);
+    }
+
+    // Exchange Requst Cycle
+    // Run the timed cycle here.
+    console.log('--- exchange_data_cycle (START) ---');
+
+    // Handle current/previous relation-ship here.
+    if(data.getInfo('current', 'timestamp') != null && data.getInfo('current', 'success')){
+        console.log('__CURRENT data is available and will be stored as __PREVIOUS data prior to the exchange call.');
+        // Deep-copy 'current' to 'previous'. Both fields have the same values
+        // at this point.
+        data.shuffleData('current', 'previous');
+    }
+
+    // Run the exchange request.
+    try {
+        // Make a data request, so that we can reconstruct any missing bits
+        // of the incoming state cache.
+        let exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
+            { retryLimit: 1 },
+            { allowPartial: true }
+        );
+
+        // Exchange Data Request succeeded.
+        // ... display the table.
+        let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
+        let output = table(tableData);
+        let tableColour = exchangeData.signature.success ? cyan : yellow;
+        console.log(tableColour(output));
+
+        // (1) If %100 complete, update the state cache. Propagate only the
+        // assets with a success flag.
+        data.updateField('current', exchangeData, { forceGranularity: true });
+
+        // RECACHE
+        try {
+            log.info({
+                context: CONTEXT,
+                message: ('Attempting to generate a fresh data state cache.')
+            });
+
+            let exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+                { retryLimit: config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT') },
+            );
+
+            log.info({
+                context: CONTEXT,
+                message: ('Data state cached successfully.')
+            });
+        } catch(error) {
+            // Soft Error
+            log.severe({
+                context: CONTEXT,
+                message: ('Data state EXPORT has failed.\n' + error.stack)
+            });
+        }
+
+        // (2) Prepare the payload.
+        // Prepare payload object based on the current and previous data.
+        let payload = utils.generatePayload(data.exportState());
+
+        // console.log('PAYLOAD:', payload);
+
+        // (3) ActivateEmission(payload)
+        activeEmission(payload);
+    } catch(error) {
+        console.log('__FATAL__\n', error);
+    }
+
+    /*
+    exchangeRequest(EXCHANGE, PAIR, SYMBOLS).then(function(result){
+        log.cyan('--- exchange_data_cycle (COMPLETE:__SUCCESS__) ---');
+
+        // TODO: WE NOW NEED TO HANDLE THE DATA HERE!
+        console.log('RESULT:', result);
+
+        // Take a snap-shot of the entire data state as a JSON cache file.
+        // NOTE: The data container should have both the current and the previous data states now.
+        utils.cacheState(globals.get('STATE_CACHE_FILE'), data.exportState());
+
+        // Move to the next stages.
+        log.magenta('___NEXT_STEP');
+
+        // Prepare payload object based on the current and previous data.
+        // let payload = utils.generatePayload(globals.get('MOCK_DATA'));
+        let payload = utils.generatePayload(data.exportState());
+
+        // Websocket Emission
+        activeEmission(payload);
+    }).catch(function(error){
+        log.red('--- exchange_data_cycle (COMPLETE:__FAILURE__) ---');
+
+        // TODO: WE NOW NEED TO HANDLE THE ERROR HERE!
+        console.log('ERROR:', error);
+
+        globals.set('DATA_FEED_IS_ACTIVE', false);
+        // In case of a failure, try to use the cached-state JSON file.
+        // Use the cached-state JSON file only if it is not older than 15min.
+        // If the timestamp on the data in the cached-state file is too old, notify
+        // the client that the information is not coming.
+        handleStateCache();
+    });
+    */
+};
+// }}}1
+
+// --- EMISSION ---
+
+// Template for the protocol container. {{{1
+// 'package' property needs to be defined here as we might be receiving a raw
+// contaner in cases where the data back-end is offline.
+// MESSAGE  : Section reserved for any server side messages.
+// RECORS   : Configuration data.
+// FLAGS    : State flags.
+// PACKAGE  : The actual data container.
+var data_container = {
+    'message' : null,
+    'records': {
+        'client_input': {},
+        'server_update': false,
+        'feed_active': false,
+    },
+    'flags': {
+        'isFirstTransmission': false,
+        'hasClientInput': false
+    },
+    'package' : {}
+};
+// }}}1
+
+// Define Active Emission Hook {{{1
+var activeEmitter = function() {};
+//
+// }}}1
+
+// Define a hook for the active emission point. {{{1
+var activeEmission = function(input) {
+    activeEmitter(input);
+};
+// }}}1
+
+/*----------------------;
+ ; Initialize WebSocket ;
+ -----------------------*/
+
+// initWebSocket() {{{1
+function initWebSocket() {
+    // Default message.
+    console.log('Starting websocket stream ...');
+    data_container['message'] = 'Greetings from the server.';
+
+    // Init the signature variable.
+    // These are dummy variables to hold the dummy data coming from the client.
+    let user_input = null;
+    let signature = null;
+
+    // This needs to be in the message section (onMessage) is still am option as we
+    // might need to send config from the client. For example, a item name.
+    // console.log('[server:onMessage] received request:', message);
+    wss.on('connection', function(ws) {
+        /*-----------------------------------------------------------------;
+        ; This section runs only on a 'message receive from client' event. ;
+        ;-----------------------------------------------------------------*/
+        // on.message {{{2
+        ws.on('message', function(message) {
+            let incoming_transmission = JSON.parse(message);
+            console.log('[server:onConnection:onMessage] received request:', incoming_transmission);
+
+            // Handle the requests from the client.
+            // TODO: Any data coming from the client gets evaluated here.
+            // signature = incoming_transmission['signature'];
+            // user_input = incoming_transmission['user_input'];
+            data_container.records['client_input'] = incoming_transmission;
+
+            // Update the communication record to indicate that the client has sent
+            // the server some information.
+            data_container.flags['hasClientInput'] = true;
+            data_container.flags['isFirstTransmission'] = false;
+
+            // Load the payload.
+            // console.log('=====================================================');
+            // console.log(data.exportState());
+            // console.log('=====================================================');
+            data_container.package = utils.generatePayload(data.exportState());
+
+            // Sending the payload to all clients.
+            wss.clients.forEach(function(client) {
+                // Prepare for transmission.
+                let transmission = JSON.stringify(data_container);
+
+                // Debug
+                console.log('[server:onConnection:onMessage] Sending:\n', transmission);
+
+                // Send the transmission.
+                client.send(transmission);
+            });
+        });
+        //}}}2
+        // Plug the ACTIVE emission hook. {{{2
+        activeEmitter = function(input) {
+            // Debug the input data stream.
+            // let cachedDataStream = data_container.package;
+            console.log('INPUT_STREAM:', input);
+
+            data_container['package'] = input;
+            // First update the JSON object by adding the signature component.
+            // Guard against undefined signatures.
+            // if(signature === undefined){
+            //     signature = 'None';
+            // }
+            // The 'input' argument is the pure object that has been imported
+            // through the data stream. We are adding the extra 'signature' field
+            // here.
+
+            // Then update carrier.
+            // Handle utility fields.
+            data_container.records['server_update'] = true;
+            data_container.records['client_input'] = {};
+            data_container.records['feed_active'] = true;
+            data_container.flags['is_first_transmission'] = false;
+            data_container.flags['hasClientInput'] = false;
+
+            // Sending the payload to all clients.
+            wss.clients.forEach(function(client) {
+                // Prepare for transmission.
+                let transmission = JSON.stringify(data_container);
+                // Debug
+                console.log('[server:onConnection:onUpdate] Sending:\n', transmission);
+                // Send the transmission.
+                client.send(transmission);
+                // Reser flag.
+                data_container.records['server_update'] = false;
+            });
+        };
+        //}}}2
+        /*-------------------------------------------------;
+        ; This section runs only once at first connection. ;
+        ;-------------------------------------------------*/
+        // Complete the connection by sending the payload to all clients.
+        wss.clients.forEach(function(client) {
+            // Prepare for transmission.
+            let transmission = JSON.stringify(data_container);
+            // Debug
+            console.log('[server:onConnection:init] Sending:\n', transmission);
+            // Send the transmission.
+            client.send(transmission);
+        });
+    });
+}
+//}}}1
+
 /*------;
  ; MAIN ;
  ------*/
@@ -527,14 +947,14 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
     const CONTEXT = 'main';
     let exchangeData = {};
 
-    // Flags
-    let doExchangeDataCaching = false;
+    // Initialise the main pair.
+    data.updateConfig('pair', 'EUR');
 
     // Importing
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
     let stateCacheImportRetryLimit = config.get('STATE_CACHE_IMPORT_RETRY_LIMIT');
-    let exchangeDataImportIsSuccess;
-    let stateCacheImportIsSuccess;
+    let exchangeDataImportIsSuccess, doExportStateCache;
+    let stateCache, isStateCacheValid;
 
     // Exporting
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
@@ -544,9 +964,31 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
     ; Exchange Data Cache Import ;
     ;---------------------------*/
     try {
-        stateCacheImportIsSuccess = await getStateCache(globals.get('STATE_CACHE_FILE'),
+        stateCache = await getStateCache(globals.get('STATE_CACHE_FILE'),
             { retryLimit: stateCacheImportRetryLimit }
         );
+
+        // Validate
+        if(!stateCache){
+            isStateCacheValid = {
+                current: false,
+                previous: false,
+                upToDate: false
+            };
+        }else{
+            isStateCacheValid = validateCache(stateCache);
+        }
+
+        log.debug({
+            context: CONTEXT,
+            verbosity: 5,
+            message: 'Incoming STATE_CACHE_FLAGS:\nCURRENT:{0}, PREVIOUS:{1}, UP_TO_DATE:{2}'
+                .stringFormatter(
+                    isStateCacheValid.current.toString(),
+                    isStateCacheValid.previous.toString(),
+                    isStateCacheValid.upToDate.toString()
+                )
+        });
     } catch(error) {
         // Hard Error, terminate.
         log.error({
@@ -561,65 +1003,193 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
         });
     }
 
-    //TODO: Continue with the new ExchangeDataRequest if only the 'current' field
-    //is available in the state cache. If that is the case, store the 'current' data
-    //as 'previous' data and save the new exchange request to the 'current' field.
+    // Continue with a new exchange data request only if one of the fields is available in the state
+    // cache or the cache data is out of date. If the existing field is the 'current' field, then
+    // shift the data from the 'current' field to the 'previous' field and store any fresh data from
+    // the latest exchange request as the new 'current' data. For cases where the existing field is
+    // the previous field, simply pipe the fresh data into the 'current' field.
 
-    /*----------------------;
-    ; Exchange Data Request ;
-    ;----------------------*/
+    if (!isStateCacheValid.current || !isStateCacheValid.previous || !isStateCacheValid.upToDate) {
+        /*------------------------------;
+        ; NEEDED: Exchange Data Request ;
+        ;------------------------------*/
+        try {
+            // Make a data request, so that we can reconstruct any missing bits
+            // of the incoming state cache.
+            exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
+                { retryLimit: exchangeDataImportRetryLimit },
+                { allowPartial: false }
+            );
 
-    try {
+            // Exchange Data Request Failed, throw an exception.
+            if(!exchangeData){
+                exchangeDataImportIsSuccess, doExportStateCache = false;
+                throw new Error('Unable to import ticker data from: ' + EXCHANGE.toUpperCase());
+            }
 
-        // Make the data request, so that we can create a state cache.
-        exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
-            { retryLimit: exchangeDataImportRetryLimit },
-            { allowPartial: false }
-        );
+            // Exchange Data Request succeeded.
+            // ... update the main flag.
+            exchangeDataImportIsSuccess, doExportStateCache = true;
 
-        // Exchange Data Request Failure
+            // ... display the table.
+            let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
+            let output = table(tableData);
+            let tableColour = exchangeData.signature.success ? cyan : yellow;
+            console.log(tableColour(output));
 
-        if(!exchangeData){
-            exchangeDataImportIsSuccess = false;
-            throw new Error('Unable to import ticker data from: ' + EXCHANGE.toUpperCase());
+            // ... update the data container
+            if (isStateCacheValid.upToDate) {
+                if (isStateCacheValid.current && !isStateCacheValid.previous) {
+                    // The 'current' field exists inside the incoming cache data, however the
+                    // 'previous' field is non-existent. When reconstructing the data container, we
+                    // should be shifting the 'current' field into the 'previous' field and piping
+                    // the fresh data into the 'current' field.
+
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'STATE_CACHE[CURRENT] field:{0}\nSTATE_CACHE[PREVIOUS] field:{1}'
+                            .stringFormatter(isStateCacheValid.current, isStateCacheValid.previous)
+                    });
+
+                    // CACHE:CURRENT -> DATA:PREVIOUS (as the cache will always
+                    // be older than the exchange request).
+                    data.updateField('previous', stateCache.data.current, { forceGranularity: false });
+
+                    // EXCHANGE_DATA -> DATA:CURRENT (as the latest exchange
+                    // request should hold the fresh ticker data).
+                    // We assume that both the "cacheState" and the
+                    // "exchangeRequest" hold complete ticker information.
+                    data.updateField('current', exchangeData, { forceGranularity: false });
+                }
+
+                if (!isStateCacheValid.current && isStateCacheValid.previous) {
+                    // The 'current' field is non-existent, but the 'previous'
+                    // field exists. We should pipe the fresh data straight into
+                    // the 'current' field.
+
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'STATE_CACHE[CURRENT] field:{0}\nSTATE_CACHE[PREVIOUS] field:{1}'
+                            .stringFormatter(isStateCacheValid.current, isStateCacheValid.previous)
+                    });
+
+                    // CACHE:PREVIOUS -> DATA:PREVIOUS (as the cache will always
+                    // be older than the exchange request).
+                    data.updateField('previous', stateCache.data.previous, { forceGranularity: false });
+
+                    // EXCHANGE:DATA -> DATA:CURRENT (as the latest exchange
+                    // request should hold the fresh ticker data).
+                    // We assume that both the "cacheState" and the
+                    // "exchangeRequest" hold complete ticker information.
+                    data.updateField('current', exchangeData, { forceGranularity: false });
+                }
+            } else {
+                // Cache data is too old, just set the 'current' field. We will
+                // not be able to calculate a difference until we have a proper
+                // previous/current relation, which should be established once
+                // the cycle runs on the next step.
+                data.updateField('current', exchangeData, { forceGranularity: false });
+            }
+
+        } catch(error) {
+            // Hard Error, terminate.
+            exchangeDataImportIsSuccess, doExportStateCache = false;
+            log.severe({
+                context: CONTEXT,
+                message: ('Exchange data IMPORT has failed.\n' + error.stack)
+            });
         }
+    } else {
+        /*----------------------------------;
+        ; NOT NEEDED: Exchange Data Request ;
+        ;----------------------------------*/
+        // No need to re-cache the state cache.
+        doExportStateCache = false;
 
-        // Exchange Data Request Success
+        try {
+            log.info({
+                context: CONTEXT,
+                message: ('Imported state cached is complete. No need for an exchange data request.')
+            });
 
-        // Store the exchange data inside the data container.
-        data.updateField('current', exchangeData);
-        exchangeDataImportIsSuccess = true;
-
-    } catch(error) {
-        // Hard Error, terminate.
-        log.severe({
-            context: CONTEXT,
-            message: ('Exchange data IMPORT has failed.\n' + error.stack)
-        });
+            // Populate the data container with the cache data.
+            data.updateField('previous', stateCache.data.previous, { forceGranularity: false });
+            data.updateField('current', stateCache.data.current, { forceGranularity: false });
+        } catch(failure) {
+            log.severe({
+                context: CONTEXT,
+                message: ('Internal data failure has occured.\n' + failure.stack)
+            });
+        }
     }
 
-    /*---------------------;
-    ; Exchange Data Export ;
-    ;---------------------*/
+    /*------------------;
+    ; Data State Export ;
+    ;-------------------*/
+    // Needed only in cases where the incoming state cache has been improved.
+    if(doExportStateCache){
+        try {
+            log.info({
+                context: CONTEXT,
+                message: ('Attempting to generate a fresh data state cache.')
+            });
 
-    try {
-        // Display the results as a table.
-        let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
-        let output = table(tableData);
-        let tableColour = exchangeData.signature.success ? cyan : yellow;
-        console.log(tableColour(output));
+            exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+                { retryLimit: exchangeDataExportRetryLimit },
+            );
 
-        exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
-            { retryLimit: exchangeDataExportRetryLimit },
-        );
-    } catch(error){
-        // Hard Error, terminate.
-        log.severe({
-            context: CONTEXT,
-            message: ('Exchange data EXPORT has failed.\n' + error.stack)
-        });
+            log.info({
+                context: CONTEXT,
+                message: ('Data state cached successfully.')
+            });
+        } catch(error) {
+            // Hard Error, terminate.
+            log.severe({
+                context: CONTEXT,
+                message: ('Data state EXPORT has failed.\n' + error.stack)
+            });
+        }
     }
 
+    /*---------;
+    ; CONTINUE ;
+    ;---------*/
+    // console.log('DATA.CURRENT:\n', data.getField('current'));
+    // SINGLE TEST CALL // await update(true);
+
+    // console.log('TMP DEBUG RUN');
+    // try {
+    //     data.updateConfig('pair', 'EUR');
+    //
+    //     let a = globals.get('MOCK_DATA');
+    //     let b = data.exportState();
+    //     // let c = utils.generatePayload(data.exportState());
+    //     // let d = utils.generatePayload(globals.get('MOCK_DATA'));
+    //
+    //     // console.log('PAYLOAD:', c);
+    //     // console.log('a', a);
+    //     // console.log('b', b);
+    //     let x = JSON.stringify(a);
+    //     let y = JSON.stringify(b);
+    //     // let w = JSON.stringify(c);
+    //     // let z = JSON.stringify(d);
+    //     console.log(x);
+    //     console.log('---');
+    //     console.log(y);
+    //     // console.log('---');
+    //     // console.log(w);
+    //     // console.log('---');
+    //     // console.log(z);
+    //     process.exit(0);
+    // }catch(err){
+    //     console.log('ERR!', err);
+    //     process.exit(1);
+    // }
+
+    runClock();
+    initWebSocket();
 })();
 
 // vim: fdm=marker ts=4

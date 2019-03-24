@@ -43,7 +43,11 @@ async function _readState(filepath) {
                     context: CONTEXT,
                     message: 'File read request has failed for: {0}'.stringFormatter(filepath)
                 });
-                // Filter access errors so we can support retrying.
+                // Filter access errors so we can support retrying. Please note
+                // that we are checking if the file exists before invoking this
+                // section. The I/O errors caught here are only for rare
+                // cases where we might loose access to the file during the
+                // read stage.
                 // TODO: Might need some more codes here.
                 if (err.code === 'ENOENT') {
                     reason = new FileStreamError(err,'I/O Failure has occured');
@@ -215,27 +219,50 @@ async function writeState(filepath, data) {
 //      callback: a function to be executed on promise delivery.
 //  INFO:
 //      A promise wrapper for the JSON cache file request.
+//  RETURNS:
+//      object { payload: obj, retry: boolean, state: boolean }
 //
 async function readState(filepath){
-    let response;
+    let response = {
+        payload: null,
+        retry: true,
+        state: false
+    };
     const CONTEXT = 'readState';
 
     try {
-        // Send the request.
-        response = JSON.parse(await _readState(filepath));
+        // Send the 'read state' request only if the file exists.
+        if (fs.existsSync(filepath)) {
+            // File exists, let's attempt to import the data.
+            response.payload = JSON.parse(await _readState(filepath));
+            response.state = true;
+        }else{
+            // File does NOT exist, let's move on.
+            response.payload = null;
+            response.state, response.retry = false;
+        }
 
-        // On SUCCESS, return the JSON object.
-        log.info({
-            context: CONTEXT,
-            verbosity: 5,
-            message: 'State cache file request was successful for: {0}'.stringFormatter(filepath)
-        });
+        if (!response.state) {
+            // On missing file, move on.
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'Following state cache file was NOT found: {0}'.stringFormatter(filepath)
+            });
+        } else {
+            // On SUCCESS, inform us.
+            log.info({
+                context: CONTEXT,
+                verbosity: 5,
+                message: 'State cache file request was successful for: {0}'.stringFormatter(filepath)
+            });
+        }
 
-        // Return the state.
+        // False or complete, return the state.
         return response;
     } catch (failure) {
         if(failure instanceof FileStreamError){
-            // Soft Error, we can come back and retry.
+            // Soft Error, probably the read stage was interrupted. We should be able to retry.
             log.error({
                 context: CONTEXT,
                 message: 'Read request for [{0}] has failed with the following exception:\n{2}: {3}'
@@ -243,19 +270,22 @@ async function readState(filepath){
             });
 
             // Flag the whole request as unsuccessful.
-            response = false;
+            response.state = false;
 
             // Drop exception and move on.
             return response;
         }
 
         // Hard Error, meaning we need to terminate, no point in retrying.
+        // This is for run-time errors and execution failures. Situations
+        // related to file permissions or accessibility should be treated as
+        // soft-errors and retried.
         log.error({
             context: CONTEXT,
             message: ('Unable to complete READ_STATE request\n' + failure)
         });
 
-        // Terminate, nothing will be returned.
+        // Bubble-up and force terminate, nothing will be returned.
         throw failure;
     }
 }
@@ -374,33 +404,31 @@ function generatePayload(dataObj){
         return trend;
     }
 
-    // console.log(dataObj.data);
-
-    for(var symbol in dataObj.data.current.symbols){
-        // symbol
-        console.log(symbol);
+    for(var asset in dataObj.data.current.assets){
+        // asset
+        // console.log(asset);
         // Build Values
-        let _currentPrice = _formatNumbers(dataObj.data.current.symbols[symbol].last);
-        let _previousPrice = _formatNumbers(dataObj.data.previous.symbols[symbol].last);
+        let _currentPrice = _formatNumbers(dataObj.data.current.assets[asset].last);
+        let _previousPrice = _formatNumbers(dataObj.data.previous.assets[asset].last);
         let _changePrice = _formatNumbers(_currentPrice - _previousPrice);
         let _changePercent = _formatNumbers(getPercentChange(_currentPrice,  _previousPrice));
 
         // Construct Payload Object
-        payload.coins[symbol] = {
-            name:  symbol,
+        payload.coins[asset] = {
+            name:  asset,
             formatted: {
                 current_price: _currentPrice,
-                previous_price: _formatNumbers(dataObj.data.previous.symbols[symbol].last),
+                previous_price: _formatNumbers(dataObj.data.previous.assets[asset].last),
                 change_price: _changePrice,
                 change_percent: _changePercent,
             },
             original: {
-                current_price: dataObj.data.current.symbols[symbol].last,
-                previous_price: dataObj.data.previous.symbols[symbol].last,
-                change_price: getPriceChange(dataObj.data.current.symbols[symbol].last, dataObj.data.previous.symbols[symbol].last),
-                change_percent: getPercentChange(dataObj.data.current.symbols[symbol].last, dataObj.data.previous.symbols[symbol].last),
+                current_price: dataObj.data.current.assets[asset].last,
+                previous_price: dataObj.data.previous.assets[asset].last,
+                change_price: getPriceChange(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last),
+                change_percent: getPercentChange(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last),
             },
-            trend: getTrend(dataObj.data.current.symbols[symbol].last, dataObj.data.previous.symbols[symbol].last)
+            trend: getTrend(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last)
         };
     }
 
@@ -455,10 +483,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            // const ticker = await exchange.fetchTicker(symbol);
+            const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            const ticker = await mockdata.fetchTicker(symbol);
+            // const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,
