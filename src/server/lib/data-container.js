@@ -1,5 +1,11 @@
 // lib/data-container.js
 
+// Local Imports
+var logging = require('./logging');
+
+// Logging
+const log = logging.getLogger();
+
 // dataObj {{{1
 /* Generic Data Construct
 NOTES:
@@ -171,24 +177,43 @@ function getConfig(key){
 // A higher level wrapper method that modifies the FIELD section of our data container.
 // 'field' being one of the states: 'previous' or 'current'.
 function updateField(field, fieldObj, { forceGranularity = false }){
+    let CONTEXT = 'updateField';
+    log.debug({
+        context: CONTEXT,
+        verbosity: 7,
+        message: 'FIELD: ' + field + ', FORCE_GRANULARITY: ' + forceGranularity
+    });
     if(!forceGranularity){
-        console.log('FORCE_GRANULARITY:FALSE');
         dataObj.data[field] = fieldObj;
     }else{
-        console.log('FORCE_GRANULARITY:TRUE');
         let storage = dataObj.data[field].assets;
         let input = fieldObj.assets;
         Object.keys(storage).forEach((key) => {
             if(storage.hasOwnProperty(key) && input.hasOwnProperty(key)){
-                console.log(`Asset ${key} found.`);
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'Asset ' + key.toUpperCase() + ' exists.'
+                });
                 if(fieldObj.assets[key].success){
-                    console.log(`\tIncoming data for ${key} is complete.`);
+                    log.info({
+                        context: CONTEXT,
+                        verbosity: 3,
+                        message: ('\tIncoming data for ' + key.toUpperCase() + ' is complete.')
+                    });
                     storage[key] = input[key];
                 }else{
-                    console.log(`Skipping missing data for asset ${key}.`);
+                    log.warning({
+                        context: CONTEXT,
+                        verbosity: 1,
+                        message: ('\tSkipping missing data for asset: ' + key.toUpperCase())
+                    });
                 }
             }else{
-                console.log(`Asset KEY missmatch for ${key}!`);
+                log.severe({
+                    context: CONTEXT,
+                    message: ('ASSET_KEY missmatch for asset: ' + key.toUpperCase())
+                });
             }
         });
     }

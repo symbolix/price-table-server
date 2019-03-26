@@ -1,7 +1,7 @@
 'use strict';
 
 // Project Imports
-const { cyan, white, red, green, yellow } = require ('ansicolor');
+const { cyan, white, red, green, yellow, darkGray, blue } = require ('ansicolor');
 const { table } = require('table');
 
 // A simple server-side script that serves a JSON object.
@@ -666,40 +666,25 @@ function twoDigits(val) {
 // }}}1
 
 // Update {{{1
-const update = async (showSeconds) => {
+const update = async () => {
     let CONTEXT = 'update';
 
-    var now = new Date();
-    var hours = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
-    if (!showSeconds) {
-        // round the minutes
-        if (seconds > 30) {
-            ++minutes;
-            if (minutes >= 60) {
-                minutes -= 60;
-                ++hours;
-                if (hours >= 24) {
-                    hours = 0;
-                }
-            }
-        }
-    }
-    var str = (hours) + ':' + twoDigits(minutes);
-    if (showSeconds) {
-        str += ':' + twoDigits(seconds);
-    }
-
-    // Exchange Requst Cycle
-    // Run the timed cycle here.
-    console.log('--- exchange_data_cycle (START) ---');
+    // Exchange Request Cycle
+    log.label({
+        verbosity: 1,
+        colour: blue.inverse,
+        message: 'exchange_request_cycle ({0})'.stringFormatter('START')
+    });
 
     // Handle current/previous relation-ship here.
     if(data.getInfo('current', 'timestamp') != null && data.getInfo('current', 'success')){
-        console.log('__CURRENT data is available and will be stored as __PREVIOUS data prior to the exchange call.');
-        // Deep-copy 'current' to 'previous'. Both fields have the same values
-        // at this point.
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'CURRENT data is available and will be stored as PREVIOUS data prior to the exchange call.'
+        });
+
+        // Deep-copy 'current' to 'previous'. As a result both fields would have the same values at this point.
         data.shuffleData('current', 'previous');
     }
 
@@ -719,11 +704,10 @@ const update = async (showSeconds) => {
         let tableColour = exchangeData.signature.success ? cyan : yellow;
         console.log(tableColour(output));
 
-        // (1) If %100 complete, update the state cache. Propagate only the
-        // assets with a success flag.
+        // Update the data container. Propagate only the assets with a success flag.
         data.updateField('current', exchangeData, { forceGranularity: true });
 
-        // RECACHE
+        // Cache the updated data container.
         try {
             log.info({
                 context: CONTEXT,
@@ -746,52 +730,32 @@ const update = async (showSeconds) => {
             });
         }
 
-        // (2) Prepare the payload.
-        // Prepare payload object based on the current and previous data.
+        // Prepare the payload.
         let payload = utils.generatePayload(data.exportState());
 
-        // console.log('PAYLOAD:', payload);
-
-        // (3) ActivateEmission(payload)
+        // Call the emission hook within the web-socket loop.
         activeEmission(payload);
+
+        // Success Label
+        log.label({
+            verbosity: 1,
+            colour: blue.inverse,
+            message: 'exchange_request_cycle [SUCCESS] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+        });
     } catch(error) {
+        // Error Label
+        log.label({
+            verbosity: 1,
+            colour: red.inverse,
+            message: 'exchange_request_cycle [FAILED] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
+        });
+
+        // Let the service know about the data feed failure.
+        globals.set('DATA_FEED_IS_ACTIVE', false);
+
+        // TODO: Fix this verbose section.
         console.log('__FATAL__\n', error);
     }
-
-    /*
-    exchangeRequest(EXCHANGE, PAIR, SYMBOLS).then(function(result){
-        log.cyan('--- exchange_data_cycle (COMPLETE:__SUCCESS__) ---');
-
-        // TODO: WE NOW NEED TO HANDLE THE DATA HERE!
-        console.log('RESULT:', result);
-
-        // Take a snap-shot of the entire data state as a JSON cache file.
-        // NOTE: The data container should have both the current and the previous data states now.
-        utils.cacheState(globals.get('STATE_CACHE_FILE'), data.exportState());
-
-        // Move to the next stages.
-        log.magenta('___NEXT_STEP');
-
-        // Prepare payload object based on the current and previous data.
-        // let payload = utils.generatePayload(globals.get('MOCK_DATA'));
-        let payload = utils.generatePayload(data.exportState());
-
-        // Websocket Emission
-        activeEmission(payload);
-    }).catch(function(error){
-        log.red('--- exchange_data_cycle (COMPLETE:__FAILURE__) ---');
-
-        // TODO: WE NOW NEED TO HANDLE THE ERROR HERE!
-        console.log('ERROR:', error);
-
-        globals.set('DATA_FEED_IS_ACTIVE', false);
-        // In case of a failure, try to use the cached-state JSON file.
-        // Use the cached-state JSON file only if it is not older than 15min.
-        // If the timestamp on the data in the cached-state file is too old, notify
-        // the client that the information is not coming.
-        handleStateCache();
-    });
-    */
 };
 // }}}1
 
@@ -805,17 +769,17 @@ const update = async (showSeconds) => {
 // FLAGS    : State flags.
 // PACKAGE  : The actual data container.
 var data_container = {
-    'message' : null,
+    'message': null,
     'records': {
-        'client_input': {},
-        'server_update': false,
-        'feed_active': false,
+        'clientInput': {},
+        'serverUpdate': false,
+        'feedActive': false,
     },
     'flags': {
         'isFirstTransmission': false,
         'hasClientInput': false
     },
-    'package' : {}
+    'package': {}
 };
 // }}}1
 
@@ -846,12 +810,11 @@ function initWebSocket() {
     let signature = null;
 
     // This needs to be in the message section (onMessage) is still am option as we
-    // might need to send config from the client. For example, a item name.
-    // console.log('[server:onMessage] received request:', message);
+    // might need to send an input from the client.
     wss.on('connection', function(ws) {
-        /*-----------------------------------------------------------------;
-        ; This section runs only on a 'message receive from client' event. ;
-        ;-----------------------------------------------------------------*/
+        /*------------------------------------------------------------------;
+         ; This section runs only on a 'message receive from client' event. ;
+         ------------------------------------------------------------------*/
         // on.message {{{2
         ws.on('message', function(message) {
             let incoming_transmission = JSON.parse(message);
@@ -861,17 +824,14 @@ function initWebSocket() {
             // TODO: Any data coming from the client gets evaluated here.
             // signature = incoming_transmission['signature'];
             // user_input = incoming_transmission['user_input'];
-            data_container.records['client_input'] = incoming_transmission;
+            data_container.records['clientInput'] = incoming_transmission;
 
             // Update the communication record to indicate that the client has sent
             // the server some information.
             data_container.flags['hasClientInput'] = true;
             data_container.flags['isFirstTransmission'] = false;
 
-            // Load the payload.
-            // console.log('=====================================================');
-            // console.log(data.exportState());
-            // console.log('=====================================================');
+            // Insert the payload.
             data_container.package = utils.generatePayload(data.exportState());
 
             // Sending the payload to all clients.
@@ -880,7 +840,7 @@ function initWebSocket() {
                 let transmission = JSON.stringify(data_container);
 
                 // Debug
-                console.log('[server:onConnection:onMessage] Sending:\n', transmission);
+                // console.log('[server:onConnection:onMessage] Sending:\n', transmission);
 
                 // Send the transmission.
                 client.send(transmission);
@@ -891,7 +851,7 @@ function initWebSocket() {
         activeEmitter = function(input) {
             // Debug the input data stream.
             // let cachedDataStream = data_container.package;
-            console.log('INPUT_STREAM:', input);
+            // console.log('INPUT_STREAM:', input);
 
             data_container['package'] = input;
             // First update the JSON object by adding the signature component.
@@ -905,20 +865,23 @@ function initWebSocket() {
 
             // Then update carrier.
             // Handle utility fields.
-            data_container.records['server_update'] = true;
-            data_container.records['client_input'] = {};
-            data_container.records['feed_active'] = true;
-            data_container.flags['is_first_transmission'] = false;
+            data_container.records['serverUpdate'] = true;
+            data_container.records['clientInput'] = {};
+            data_container.records['feedActive'] = globals.get('DATA_FEED_IS_ACTIVE');
+            data_container.flags['isFirstTransmission'] = false;
             data_container.flags['hasClientInput'] = false;
 
             // Sending the payload to all clients.
             wss.clients.forEach(function(client) {
                 // Prepare for transmission.
                 let transmission = JSON.stringify(data_container);
+
                 // Debug
-                console.log('[server:onConnection:onUpdate] Sending:\n', transmission);
+                // console.log('[server:onConnection:onUpdate] Sending:\n', transmission);
+
                 // Send the transmission.
                 client.send(transmission);
+
                 // Reser flag.
                 data_container.records['server_update'] = false;
             });
@@ -931,8 +894,10 @@ function initWebSocket() {
         wss.clients.forEach(function(client) {
             // Prepare for transmission.
             let transmission = JSON.stringify(data_container);
+
             // Debug
-            console.log('[server:onConnection:init] Sending:\n', transmission);
+            // console.log('[server:onConnection:init] Sending:\n', transmission);
+
             // Send the transmission.
             client.send(transmission);
         });
@@ -1118,6 +1083,7 @@ function initWebSocket() {
             data.updateField('previous', stateCache.data.previous, { forceGranularity: false });
             data.updateField('current', stateCache.data.current, { forceGranularity: false });
         } catch(failure) {
+            // Hard Error, terminate.
             log.severe({
                 context: CONTEXT,
                 message: ('Internal data failure has occured.\n' + failure.stack)
@@ -1153,43 +1119,17 @@ function initWebSocket() {
         }
     }
 
-    /*---------;
-    ; CONTINUE ;
-    ;---------*/
-    // console.log('DATA.CURRENT:\n', data.getField('current'));
-    // SINGLE TEST CALL // await update(true);
-
-    // console.log('TMP DEBUG RUN');
-    // try {
-    //     data.updateConfig('pair', 'EUR');
-    //
-    //     let a = globals.get('MOCK_DATA');
-    //     let b = data.exportState();
-    //     // let c = utils.generatePayload(data.exportState());
-    //     // let d = utils.generatePayload(globals.get('MOCK_DATA'));
-    //
-    //     // console.log('PAYLOAD:', c);
-    //     // console.log('a', a);
-    //     // console.log('b', b);
-    //     let x = JSON.stringify(a);
-    //     let y = JSON.stringify(b);
-    //     // let w = JSON.stringify(c);
-    //     // let z = JSON.stringify(d);
-    //     console.log(x);
-    //     console.log('---');
-    //     console.log(y);
-    //     // console.log('---');
-    //     // console.log(w);
-    //     // console.log('---');
-    //     // console.log(z);
-    //     process.exit(0);
-    // }catch(err){
-    //     console.log('ERR!', err);
-    //     process.exit(1);
-    // }
-
-    runClock();
-    initWebSocket();
+    /*---------------;
+    ; Start Services ;
+    ;---------------*/
+    try {
+        // Services
+        runClock();
+        initWebSocket();
+    } catch(err) {
+        console.log('FAILURE: CRITICAL', err);
+        process.exit(1);
+    }
 })();
 
 // vim: fdm=marker ts=4
