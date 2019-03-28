@@ -1,7 +1,7 @@
 // lib/globals.js
 
 var resources = {
-    APP_VERSION: '0.0.0.[1]',
+    APP_VERSION: 'v0.0.1.[12]',
     DATA_FEED_IS_ACTIVE: false,
     CURRENCY_PAIR: 'EUR',
     STATE_CACHE_FILE: './data/statecache.json',

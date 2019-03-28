@@ -483,10 +483,10 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // Actual Request
-            const ticker = await exchange.fetchTicker(symbol);
+            // const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            // const ticker = await mockdata.fetchTicker(symbol);
+            const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,

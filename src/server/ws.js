@@ -16,6 +16,7 @@ const config = require('./lib/configs');
 const logging = require('./lib/logging');
 const tables = require('./lib/tables');
 const mockdata = require('./lib/mock-data');
+const schema = require('./lib/data-schema.js');
 
 // Symbols {{{1
 const SYMBOLS = [
@@ -41,20 +42,19 @@ const EXCHANGE = 'kraken';
 // Logging
 const log = logging.getLogger();
 
+// Globals
+const APP_VERSION = globals.get('APP_VERSION');
+
 /*--------------------;
  ; Server Application ;
  ;--------------------*/
 
-!config.get('SILENT') && console.log('\nTest Error Handling v0.0.1.[2]');
+!config.get('SILENT') && console.log(`\nPrice Table Server ${APP_VERSION}`);
 
-// @public async fetchCachedData(filepath) {{{1
-//
-//  ARGS:
-//      filepath   : Path to the cache file
-//      passThrough: Boolean, allows partial data to be returned
-//  INFO:
-//      This is an async fetch call wrapping the cached date request.
-//
+/** public async fetchCachedData(filepath) {{{1
+ *  This is an async fetch call wrapping the cached date request.
+ *  @param {string} filepath - Path to the cache file.
+ */
 const fetchCachedData = async (filepath) => {
     const CONTEXT = 'fetchCachedData';
     let response;
@@ -759,30 +759,6 @@ const update = async () => {
 };
 // }}}1
 
-// --- EMISSION ---
-
-// Template for the protocol container. {{{1
-// 'package' property needs to be defined here as we might be receiving a raw
-// contaner in cases where the data back-end is offline.
-// MESSAGE  : Section reserved for any server side messages.
-// RECORS   : Configuration data.
-// FLAGS    : State flags.
-// PACKAGE  : The actual data container.
-var data_container = {
-    'message': null,
-    'records': {
-        'clientInput': {},
-        'serverUpdate': false,
-        'feedActive': false,
-    },
-    'flags': {
-        'isFirstTransmission': false,
-        'hasClientInput': false
-    },
-    'package': {}
-};
-// }}}1
-
 // Define Active Emission Hook {{{1
 var activeEmitter = function() {};
 //
@@ -794,53 +770,59 @@ var activeEmission = function(input) {
 };
 // }}}1
 
-/*----------------------;
- ; Initialize WebSocket ;
- -----------------------*/
+/*-----------------------;
+ ; Initialize WebSockets ;
+ ------------------------*/
 
 // initWebSocket() {{{1
 function initWebSocket() {
     // Default message.
-    console.log('Starting websocket stream ...');
-    data_container['message'] = 'Greetings from the server.';
+    const CONTEXT = 'initWebSocket';
 
-    // Init the signature variable.
-    // These are dummy variables to hold the dummy data coming from the client.
-    let user_input = null;
-    let signature = null;
+    log.info({
+        context: CONTEXT,
+        verbosity: 3,
+        message: ('Starting websocket server.')
+    });
 
-    // This needs to be in the message section (onMessage) is still am option as we
+    var dataSchema = schema.template;
+    const message = {
+        serverAppName: 'Price Table Server',
+        serverVersion: APP_VERSION,
+        schemaVersion: schema.version
+    };
+
+    dataSchema['message'] = message;
+
+    // This needs to be in the message section (onMessage) is still an option as we
     // might need to send an input from the client.
     wss.on('connection', function(ws) {
         /*------------------------------------------------------------------;
          ; This section runs only on a 'message receive from client' event. ;
          ------------------------------------------------------------------*/
         // on.message {{{2
-        ws.on('message', function(message) {
-            let incoming_transmission = JSON.parse(message);
-            console.log('[server:onConnection:onMessage] received request:', incoming_transmission);
+        ws.on('message', (message) => {
+            let incomingTransmission = JSON.parse(message);
+            console.log('[server:onConnection:onMessage]');
 
             // Handle the requests from the client.
-            // TODO: Any data coming from the client gets evaluated here.
-            // signature = incoming_transmission['signature'];
-            // user_input = incoming_transmission['user_input'];
-            data_container.records['clientInput'] = incoming_transmission;
+            dataSchema.records.clientInput = incomingTransmission;
 
             // Update the communication record to indicate that the client has sent
             // the server some information.
-            data_container.flags['hasClientInput'] = true;
-            data_container.flags['isFirstTransmission'] = false;
+            dataSchema.flags.hasClientInput = true;
+            dataSchema.flags.isFirstTransmission = false;
 
             // Insert the payload.
-            data_container.package = utils.generatePayload(data.exportState());
+            dataSchema.package = utils.generatePayload(data.exportState());
 
             // Sending the payload to all clients.
-            wss.clients.forEach(function(client) {
+            wss.clients.forEach((client) => {
                 // Prepare for transmission.
-                let transmission = JSON.stringify(data_container);
+                let transmission = JSON.stringify(dataSchema);
 
                 // Debug
-                // console.log('[server:onConnection:onMessage] Sending:\n', transmission);
+                console.log('[server:onConnection:onMessage]');
 
                 // Send the transmission.
                 client.send(transmission);
@@ -850,53 +832,49 @@ function initWebSocket() {
         // Plug the ACTIVE emission hook. {{{2
         activeEmitter = function(input) {
             // Debug the input data stream.
-            // let cachedDataStream = data_container.package;
             // console.log('INPUT_STREAM:', input);
 
-            data_container['package'] = input;
-            // First update the JSON object by adding the signature component.
-            // Guard against undefined signatures.
-            // if(signature === undefined){
-            //     signature = 'None';
-            // }
-            // The 'input' argument is the pure object that has been imported
-            // through the data stream. We are adding the extra 'signature' field
-            // here.
+            // Insert the payload.
+            dataSchema.package = input;
 
-            // Then update carrier.
-            // Handle utility fields.
-            data_container.records['serverUpdate'] = true;
-            data_container.records['clientInput'] = {};
-            data_container.records['feedActive'] = globals.get('DATA_FEED_IS_ACTIVE');
-            data_container.flags['isFirstTransmission'] = false;
-            data_container.flags['hasClientInput'] = false;
+            // Then update the carrier.
+            dataSchema.records.serverUpdate = true;
+            dataSchema.records.clientInput = null;
+            dataSchema.records.feedActive = globals.get('DATA_FEED_IS_ACTIVE');
+            dataSchema.flags.isFirstTransmission = false;
+            dataSchema.flags.hasClientInput = false;
 
             // Sending the payload to all clients.
-            wss.clients.forEach(function(client) {
+            wss.clients.forEach((client) => {
                 // Prepare for transmission.
-                let transmission = JSON.stringify(data_container);
+                let transmission = JSON.stringify(dataSchema);
 
                 // Debug
                 // console.log('[server:onConnection:onUpdate] Sending:\n', transmission);
+                console.log('[server:onConnection:onUpdate]');
 
                 // Send the transmission.
                 client.send(transmission);
 
                 // Reser flag.
-                data_container.records['server_update'] = false;
+                dataSchema.records.server_update = false;
             });
         };
         //}}}2
         /*-------------------------------------------------;
         ; This section runs only once at first connection. ;
         ;-------------------------------------------------*/
-        // Complete the connection by sending the payload to all clients.
-        wss.clients.forEach(function(client) {
+        // Data schema updates.
+        dataSchema.flags.isFirstTransmission = true;
+
+        // Sending the payload to all clients.
+        wss.clients.forEach((client) => {
             // Prepare for transmission.
-            let transmission = JSON.stringify(data_container);
+            let transmission = JSON.stringify(dataSchema);
 
             // Debug
             // console.log('[server:onConnection:init] Sending:\n', transmission);
+            console.log('[server:onConnection:init]');
 
             // Send the transmission.
             client.send(transmission);
