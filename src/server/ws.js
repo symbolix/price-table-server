@@ -572,7 +572,8 @@ function validateCache(cache) {
             console.log('CURRENT_TIME:', currentTime, 'STATE_CACHE_TIME', stateCacheTime);
 
             // Get timestamp difference.
-            let diff = utils.timeDiff(currentTime, stateCacheTime);
+            let currentAgeObj = new utils.getAge(currentTime, stateCacheTime);
+            let diff = currentAgeObj.getDiff();
 
             // Debug
             console.log('STATE_CACHE is',
@@ -589,7 +590,7 @@ function validateCache(cache) {
                 config.get('STATE_CACHE_FILE_AGE_LIMIT').seconds, 'seconds.');
 
             // Validate state-cache age.
-            if(diff.isOld(config.get('STATE_CACHE_FILE_AGE_LIMIT'), diff)){
+            if(currentAgeObj.isOld(config.get('STATE_CACHE_FILE_AGE_LIMIT'))){
                 console.log('STATE_CACHE_DATA is out of date.');
                 result.upToDate = false;
             } else {

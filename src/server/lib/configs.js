@@ -15,8 +15,8 @@ var resources = {
     STATE_CACHE_IMPORT_RETRY_LIMIT: 9,
     STATE_CACHE_FILE_AGE_LIMIT: {
         days: 0,
-        hours: 12,
-        minutes: 59,
+        hours: 0,
+        minutes: 5,
         seconds: 59
     },
     /* This is the verbosity depth required by the function hosting the verbosity request.*/

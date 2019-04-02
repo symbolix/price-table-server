@@ -370,6 +370,96 @@ function timeDiff(date1, date2){
 }
 // }}}1
 
+/** getAge (startDate, endDate) {{{1
+ * Generates an age object based on the provided start and end dates.
+ * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
+ * (https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds)
+ * @parm {object} startDate : The date object for the start date.
+ * @parm {object} endDate   : The date object for the end date.
+ */
+function getAge(startDate, endDate) {
+    var res = Math.abs(startDate - endDate) / 1000;
+
+    // get total days between two dates
+    var days = Math.floor(res / 86400);
+
+    // get hours
+    var hours = Math.floor(res/ 3600) % 24;
+
+    // get minutes
+    var minutes = Math.floor(res / 60) % 60;
+
+    // get seconds
+    var seconds = res % 60;
+
+    // Public Storage
+    this.diff = {
+        days: days,
+        hours: hours,
+        minutes: minutes,
+        seconds: seconds
+    };
+
+    // Public Getter
+    this.getDiff = function(){
+        return this.diff;
+    };
+}
+// }}}1
+
+/** getAge.isOld (ageLimitObj) {{{1
+ * This is a public method attached to the getAge() function.
+ * Relies on internal data of a getAge() instance.
+ * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
+ * @parm {object} ageLimitObj : An age limit object structured in the following
+ * way: { days: 0, hours: 0, minutes: 5, seconds: 59 }
+ */
+// Attach the following public utility method to getAge()
+getAge.prototype.isOld = function(ageLimitObj) {
+    const CONTEXT = this.constructor.name + '.isOld';
+
+    // ageObj1: is the inherited internal AGE object (this.diff).
+    // ageObj2: is the AGE_LIMIT object.
+    let ageObj1 = this.diff;
+    let ageObj2 = ageLimitObj;
+
+    // Keys template.
+    const UNITS = ['days', 'hours', 'minutes', 'seconds'];
+
+    // We create a flag, and an index to iterate over our UNITS array.
+    let unitsIndex = 0;
+
+    // We'll loop over the UNITS array. The key is that, if the current unit
+    // exceeds the limit unit, we use an early return to break.
+    while (unitsIndex < UNITS.length) {
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'Cycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + ageObj2[UNITS[unitsIndex]] + '], current value: [' + ageObj1[UNITS[unitsIndex]] + '].',
+        });
+        // Here we check: is our limit unit less than our current?
+        if (ageObj1[UNITS[unitsIndex]] > ageObj2[UNITS[unitsIndex]]) {
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'STATE_CACHE is too old!'
+            });
+            return true;
+        }
+
+        // Increment our UNITS array pointer.
+        unitsIndex++;
+    }
+    // If we get here, then all the D, H, M, S have passed and we can return false (is-not-old).
+    log.info({
+        context: CONTEXT,
+        verbosity: 1,
+        message: 'STATE_CACHE is NOT old.'
+    });
+    return false;
+};
+// }}}1
+
 // @public generatePayload(dataObject)
 // {{{1
 function generatePayload(dataObj){
@@ -553,6 +643,7 @@ module.exports = {
     writeState: writeState,
     readState: readState,
     timeDiff: timeDiff,
+    getAge: getAge,
     generatePayload: generatePayload,
     sendExchangeRequest: sendExchangeRequest
 };
