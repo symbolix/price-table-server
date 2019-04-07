@@ -439,10 +439,10 @@ getAge.prototype.isOld = function(ageLimitObj) {
         });
         // Here we check: is our limit unit less than our current?
         if (ageObj1[UNITS[unitsIndex]] > ageObj2[UNITS[unitsIndex]]) {
-            log.warning({
+            log.debug({
                 context: CONTEXT,
-                verbosity: 1,
-                message: 'STATE_CACHE is too old!'
+                verbosity: 7,
+                message: 'STATE_CACHE [IS_OLD]: TRUE',
             });
             return true;
         }
@@ -451,10 +451,10 @@ getAge.prototype.isOld = function(ageLimitObj) {
         unitsIndex++;
     }
     // If we get here, then all the D, H, M, S have passed and we can return false (is-not-old).
-    log.info({
+    log.debug({
         context: CONTEXT,
-        verbosity: 1,
-        message: 'STATE_CACHE is NOT old.'
+        verbosity: 7,
+        message: 'STATE_CACHE [IS_OLD]: FALSE'
     });
     return false;
 };
@@ -572,6 +572,15 @@ async function sendExchangeRequest(id, pair, symbols){
 
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
+            // (TEST): start
+            const delay = (ms) => new Promise(resolve => setTimeout(() => {
+                console.log(`___TEST___: Deliberate slow-down activated. Waiting for ${ms} millisecond(s) ...`);
+                resolve('ok');
+            }, ms));
+
+            await delay(9000);
+            // (TEST): end
+
             // Actual Request
             // const ticker = await exchange.fetchTicker(symbol);
 

@@ -15,7 +15,6 @@ const globals = require('./lib/globals');
 const config = require('./lib/configs');
 const logging = require('./lib/logging');
 const tables = require('./lib/tables');
-const mockdata = require('./lib/mock-data');
 const schema = require('./lib/data-schema.js');
 
 // Symbols {{{1
@@ -44,6 +43,7 @@ const log = logging.getLogger();
 
 // Globals
 const APP_VERSION = globals.get('APP_VERSION');
+var CLOCK_CYCLE_ACTIVE = false;
 
 /*--------------------;
  ; Server Application ;
@@ -288,7 +288,10 @@ const getStateCache = async (filepath, { retryLimit = 1 }) => {
             if(!success){
                 const isLastAttempt = i + 1 === retryLimit;
                 if(!response.retry){
-                    console.log('MISSING_FILE or TRUNCATED_DATA, no need to retry.');
+                    log.warning({
+                        context: CONTEXT,
+                        message: ('MISSING_FILE or TRUNCATED_DATA, no need to retry.')
+                    });
                     break;
                 }
                 if(isLastAttempt){
@@ -354,6 +357,19 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
 
             // Request
             response = await fetchExchangeData(id, pair, symbols, { passThrough: allowPartial });
+
+            if(response){
+                // ... display the table.
+                let tableData = tables.exchangeRequestAsTable(response.assets);
+                let output = table(tableData);
+                let tableColour = response.signature.success ? cyan : yellow;
+                // console.log(tableColour(output));
+                log.info({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'Exchange data query results:\n' + tableColour(output),
+                });
+            }
 
             // Evaluate
             if(response){
@@ -426,7 +442,7 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
 
             log.error({
                 context: CONTEXT,
-                message: ('Incomplete exchange DATA request.')
+                message: ('Incomplete exchange DATA request.\n' + failure)
             });
 
             // Bubble up the error and terminate.
@@ -535,6 +551,10 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 
 // validateCache(id) {{{1
 function validateCache(cache) {
+
+    // Initialise
+    const CONTEXT = 'validateCache';
+
     let result = {
         current: false,
         previous: false,
@@ -543,18 +563,34 @@ function validateCache(cache) {
 
     try {
         if (cache.data.current.signature.success) {
-            console.log('CURRENT.OK');
+            log.info({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'STATE_CACHE:CURRENT field checks fine.'
+            });
             result.current = true;
         } else {
-            console.log('CURRENT.NOT_OK');
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'STATE_CACHE:CURRENT field is missing or incomplete.'
+            });
             result.current = false;
         }
 
         if (cache.data.previous.signature.success) {
-            console.log('PREVIOUS.OK');
+            log.info({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'STATE_CACHE:PREVIOUS field checks fine.'
+            });
             result.previous = true;
         } else {
-            console.log('PREVIOUS.NOT_OK');
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'STATE_CACHE:PREVIOUS field is missing or incomplete.'
+            });
             result.previous = false;
         }
 
@@ -568,40 +604,59 @@ function validateCache(cache) {
             // let stateCacheTime = new Date('Jan 6, 2019 19:15:28');
             // let currentTime = new Date('Jan 6, 2019 19:30:27');
 
-            // Debug
-            console.log('CURRENT_TIME:', currentTime, 'STATE_CACHE_TIME', stateCacheTime);
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'CURRENT_TIME: ' + currentTime + ' STATE_CACHE_TIME: ' + stateCacheTime,
+            });
 
-            // Get timestamp difference.
+            // Get timestamp difference and limits.
             let currentAgeObj = new utils.getAge(currentTime, stateCacheTime);
             let diff = currentAgeObj.getDiff();
 
-            // Debug
-            console.log('STATE_CACHE is',
-                diff.days, 'days',
-                diff.hours,'hours',
-                diff.minutes, 'minutes and',
-                diff.seconds, 'seconds old.');
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'STATE_CACHE is (' + diff.days + ') days, (' + diff.hours + ') hours, (' + diff.minutes + ') minutes and (' + diff.seconds + ') seconds old.'
+            });
 
-            // Debug
-            console.log('AGE_LIMIT for the STATE_CACHE is',
-                config.get('STATE_CACHE_FILE_AGE_LIMIT').days, 'days',
-                config.get('STATE_CACHE_FILE_AGE_LIMIT').hours,'hours',
-                config.get('STATE_CACHE_FILE_AGE_LIMIT').minutes, 'minutes and',
-                config.get('STATE_CACHE_FILE_AGE_LIMIT').seconds, 'seconds.');
+            let limit = config.get('STATE_CACHE_FILE_AGE_LIMIT');
+
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'AGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
+            });
 
             // Validate state-cache age.
-            if(currentAgeObj.isOld(config.get('STATE_CACHE_FILE_AGE_LIMIT'))){
-                console.log('STATE_CACHE_DATA is out of date.');
+            // --- OVERRIDE ---
+            result.upToDate = true;
+
+            /* --- REENABLE THIS! ---
+            if(currentAgeObj.isOld(limit)){
+                log.warning({
+                    context: CONTEXT,
+                    verbosity: 1,
+                    message: 'STATE_CACHE_DATA is out of date.'
+                });
                 result.upToDate = false;
             } else {
-                console.log('STATE_CACHE_DATA is valid.');
+                log.info({
+                    context: CONTEXT,
+                    verbosity: 1,
+                    message: 'STATE_CACHE_DATA is up to date.'
+                });
                 result.upToDate = true;
             }
+            */
         } else {
             throw new Error('Invalid STATE_CACHE_DATA.');
         }
     } catch (error) {
-        console.log('FATAL:', error);
+        log.severe({
+            context: CONTEXT,
+            message: ('STATE_CACHE validation has failed.\n' + error)
+        });
     }
 
     // Return
@@ -610,19 +665,6 @@ function validateCache(cache) {
 // }}}1
 
 // DEV //
-
-// runClock {{{1
-function runClock() {
-    var now = new Date();
-    var timeToNextTick = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-    setTimeout(function() {
-        // DEV: Re-enable the actual function here.
-        update(false);
-        // mockUpdate(false);
-        runClock();
-    }, timeToNextTick);
-}
-// }}}1
 
 // mockUpdate {{{1
 function mockUpdate(showSeconds) {
@@ -643,10 +685,7 @@ function mockUpdate(showSeconds) {
             }
         }
     }
-    var str = (hours) + ':' + twoDigits(minutes);
-    if (showSeconds) {
-        str += ':' + twoDigits(seconds);
-    }
+
     /* Websocket Emission */
     // Prepare payload object based on the current and previous data.
     let payload = utils.generatePayload(globals.get('MOCK_DATA'));
@@ -656,18 +695,9 @@ function mockUpdate(showSeconds) {
 }
 // }}}1
 
-// twoDigits {{{1
-function twoDigits(val) {
-    val = val + '';
-    if (val.length < 2) {
-        val = '0' + val;
-    }
-    return val;
-}
-// }}}1
-
 // Update {{{1
 const update = async () => {
+    CLOCK_CYCLE_ACTIVE = true;
     let CONTEXT = 'update';
 
     // Exchange Request Cycle
@@ -698,12 +728,19 @@ const update = async () => {
             { allowPartial: true }
         );
 
+        /*
         // Exchange Data Request succeeded.
         // ... display the table.
         let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
         let output = table(tableData);
         let tableColour = exchangeData.signature.success ? cyan : yellow;
-        console.log(tableColour(output));
+        // console.log(tableColour(output));
+        log.info({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'Exchange data query results:\n' + tableColour(output),
+        });
+        */
 
         // Update the data container. Propagate only the assets with a success flag.
         data.updateField('current', exchangeData, { forceGranularity: true });
@@ -727,7 +764,7 @@ const update = async () => {
             // Soft Error
             log.severe({
                 context: CONTEXT,
-                message: ('Data state EXPORT has failed.\n' + error.stack)
+                message: ('Data state EXPORT has failed.\n' + error)
             });
         }
 
@@ -754,9 +791,63 @@ const update = async () => {
         // Let the service know about the data feed failure.
         globals.set('DATA_FEED_IS_ACTIVE', false);
 
-        // TODO: Fix this verbose section.
-        console.log('__FATAL__\n', error);
+        log.severe({
+            context: CONTEXT,
+            message: ('Failed to propagate exchange data.\n' + error)
+        });
     }
+    console.log('___AFTER___: update():');
+    CLOCK_CYCLE_ACTIVE = false;
+};
+// }}}1
+
+// runClock {{{1
+const runClock = async () => {
+    var now = new Date();
+    var timeToNextTick = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+
+    // TEST (start)
+    var h = now.getHours();
+    var m = now.getMinutes();
+    var s = now.getSeconds();
+    const timeSignature = h + ':' + m + ':' + s + ':';
+    // TEST (end)
+
+    /*
+    const cycle = (ms) => new Promise(resolve => setTimeout(() => {
+        resolve(ms);
+    }, ms));
+    */
+
+    console.log('___START__: runClock()');
+
+    setTimeout(function() {
+        console.log(`<${timeSignature}> ___TEST___: Done waiting. Next cycle starts.`);
+        if(CLOCK_CYCLE_ACTIVE){
+            console.log('___TEST___: REQUEST_CYCLE already running. Skipping ...');
+        }else{
+            console.log('___TEST___: Previous REQUEST_CYCLE is complete. Running a new one ...');
+            update();
+        }
+        // Recursion
+        console.log('___NEXT___: runClock()');
+        runClock();
+    }, timeToNextTick);
+
+    /*
+    cycle(timeToNextTick).then(result => {
+        console.log('___TEST___: Done waiting. Next cycle starts.');
+        if(CLOCK_CYCLE_ACTIVE){
+            console.log('___TEST___: REQUEST_CYCLE already running. Skipping ...');
+        }else{
+            console.log('___TEST___: Previous REQUEST_CYCLE is complete. Running next one ...');
+            update();
+        }
+        // Recursion
+        console.log('___NEXT___: runClock()');
+        runClock();
+    });
+    */
 };
 // }}}1
 
@@ -884,6 +975,10 @@ function initWebSocket() {
 }
 //}}}1
 
+/** MAIN (async) {{{1
+ *  This is the main async block.
+ */
+
 /*------;
  ; MAIN ;
  ------*/
@@ -975,11 +1070,13 @@ function initWebSocket() {
             // ... update the main flag.
             exchangeDataImportIsSuccess, doExportStateCache = true;
 
+            /*
             // ... display the table.
             let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
             let output = table(tableData);
             let tableColour = exchangeData.signature.success ? cyan : yellow;
             console.log(tableColour(output));
+            */
 
             // ... update the data container
             if (isStateCacheValid.upToDate) {
@@ -1044,6 +1141,7 @@ function initWebSocket() {
                 context: CONTEXT,
                 message: ('Exchange data IMPORT has failed.\n' + error.stack)
             });
+            process.exit(1);
         }
     } else {
         /*----------------------------------;
@@ -1106,9 +1204,13 @@ function initWebSocket() {
         runClock();
         initWebSocket();
     } catch(err) {
-        console.log('FAILURE: CRITICAL', err);
+        log.severe({
+            context: CONTEXT,
+            message: ('Main service has failed!\n' + err)
+        });
         process.exit(1);
     }
 })();
+// }}}1
 
 // vim: fdm=marker ts=4
