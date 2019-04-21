@@ -1,7 +1,7 @@
 'use strict';
 
 // Project Imports
-const { cyan, white, red, green, yellow, darkGray, blue } = require ('ansicolor');
+const { cyan, white, red, green, yellow, blue } = require ('ansicolor');
 const { table } = require('table');
 
 // A simple server-side script that serves a JSON object.
@@ -16,6 +16,7 @@ const config = require('./lib/configs');
 const logging = require('./lib/logging');
 const tables = require('./lib/tables');
 const schema = require('./lib/data-schema.js');
+const timers = require('./lib/timers.js');
 
 // Symbols {{{1
 const SYMBOLS = [
@@ -38,18 +39,21 @@ const PAIR = 'EUR';
 // Exchange
 const EXCHANGE = 'kraken';
 
+// Globals
+const APP_VERSION = globals.get('APP_VERSION');
+
+// Intro
+!config.get('SILENT') && console.log(`\nPrice Table Server ${APP_VERSION}`);
+
 // Logging
 const log = logging.getLogger();
 
-// Globals
-const APP_VERSION = globals.get('APP_VERSION');
-var CLOCK_CYCLE_ACTIVE = false;
+// Interval
+let requestInterval = new timers.Interval('request');
 
 /*--------------------;
  ; Server Application ;
  ;--------------------*/
-
-!config.get('SILENT') && console.log(`\nPrice Table Server ${APP_VERSION}`);
 
 /** public async fetchCachedData(filepath) {{{1
  *  This is an async fetch call wrapping the cached date request.
@@ -664,43 +668,14 @@ function validateCache(cache) {
 }
 // }}}1
 
-// DEV //
-
-// mockUpdate {{{1
-function mockUpdate(showSeconds) {
-    var now = new Date();
-    var hours = now.getHours();
-    var minutes = now.getMinutes();
-    var seconds = now.getSeconds();
-    if (!showSeconds) {
-        // round the minutes
-        if (seconds > 30) {
-            ++minutes;
-            if (minutes >= 60) {
-                minutes -= 60;
-                ++hours;
-                if (hours >= 24) {
-                    hours = 0;
-                }
-            }
-        }
-    }
-
-    /* Websocket Emission */
-    // Prepare payload object based on the current and previous data.
-    let payload = utils.generatePayload(globals.get('MOCK_DATA'));
-
-    // This is the REAL emission, enable this!
-    activeEmission(payload);
-}
-// }}}1
-
 // Update {{{1
 const update = async () => {
-    CLOCK_CYCLE_ACTIVE = true;
+    // Start request state.
+    requestInterval.setState('isRequestActive', true);
+
     let CONTEXT = 'update';
 
-    // Exchange Request Cycle
+    // Exchange Request Cycle Label
     log.label({
         verbosity: 1,
         colour: blue.inverse,
@@ -724,23 +699,9 @@ const update = async () => {
         // Make a data request, so that we can reconstruct any missing bits
         // of the incoming state cache.
         let exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
-            { retryLimit: 1 },
+            { retryLimit: 3 },
             { allowPartial: true }
         );
-
-        /*
-        // Exchange Data Request succeeded.
-        // ... display the table.
-        let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
-        let output = table(tableData);
-        let tableColour = exchangeData.signature.success ? cyan : yellow;
-        // console.log(tableColour(output));
-        log.info({
-            context: CONTEXT,
-            verbosity: 7,
-            message: 'Exchange data query results:\n' + tableColour(output),
-        });
-        */
 
         // Update the data container. Propagate only the assets with a success flag.
         data.updateField('current', exchangeData, { forceGranularity: true });
@@ -752,7 +713,7 @@ const update = async () => {
                 message: ('Attempting to generate a fresh data state cache.')
             });
 
-            let exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+            await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
                 { retryLimit: config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT') },
             );
 
@@ -796,58 +757,9 @@ const update = async () => {
             message: ('Failed to propagate exchange data.\n' + error)
         });
     }
-    console.log('___AFTER___: update():');
-    CLOCK_CYCLE_ACTIVE = false;
-};
-// }}}1
 
-// runClock {{{1
-const runClock = async () => {
-    var now = new Date();
-    var timeToNextTick = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-
-    // TEST (start)
-    var h = now.getHours();
-    var m = now.getMinutes();
-    var s = now.getSeconds();
-    const timeSignature = h + ':' + m + ':' + s + ':';
-    // TEST (end)
-
-    /*
-    const cycle = (ms) => new Promise(resolve => setTimeout(() => {
-        resolve(ms);
-    }, ms));
-    */
-
-    console.log('___START__: runClock()');
-
-    setTimeout(function() {
-        console.log(`<${timeSignature}> ___TEST___: Done waiting. Next cycle starts.`);
-        if(CLOCK_CYCLE_ACTIVE){
-            console.log('___TEST___: REQUEST_CYCLE already running. Skipping ...');
-        }else{
-            console.log('___TEST___: Previous REQUEST_CYCLE is complete. Running a new one ...');
-            update();
-        }
-        // Recursion
-        console.log('___NEXT___: runClock()');
-        runClock();
-    }, timeToNextTick);
-
-    /*
-    cycle(timeToNextTick).then(result => {
-        console.log('___TEST___: Done waiting. Next cycle starts.');
-        if(CLOCK_CYCLE_ACTIVE){
-            console.log('___TEST___: REQUEST_CYCLE already running. Skipping ...');
-        }else{
-            console.log('___TEST___: Previous REQUEST_CYCLE is complete. Running next one ...');
-            update();
-        }
-        // Recursion
-        console.log('___NEXT___: runClock()');
-        runClock();
-    });
-    */
+    // End the request state here.
+    requestInterval.setState('isRequestActive', false);
 };
 // }}}1
 
@@ -997,7 +909,6 @@ function initWebSocket() {
 
     // Exporting
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
-    let exchangeDataExportIsSuccess;
 
     /*---------------------------;
     ; Exchange Data Cache Import ;
@@ -1069,14 +980,6 @@ function initWebSocket() {
             // Exchange Data Request succeeded.
             // ... update the main flag.
             exchangeDataImportIsSuccess, doExportStateCache = true;
-
-            /*
-            // ... display the table.
-            let tableData = tables.exchangeRequestAsTable(exchangeData.assets);
-            let output = table(tableData);
-            let tableColour = exchangeData.signature.success ? cyan : yellow;
-            console.log(tableColour(output));
-            */
 
             // ... update the data container
             if (isStateCacheValid.upToDate) {
@@ -1179,7 +1082,7 @@ function initWebSocket() {
                 message: ('Attempting to generate a fresh data state cache.')
             });
 
-            exchangeDataExportIsSuccess = await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+            await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
                 { retryLimit: exchangeDataExportRetryLimit },
             );
 
@@ -1201,7 +1104,9 @@ function initWebSocket() {
     ;---------------*/
     try {
         // Services
-        runClock();
+        requestInterval.runInterval(1, 0, function() {
+            update();
+        });
         initWebSocket();
     } catch(err) {
         log.severe({

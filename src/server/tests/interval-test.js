@@ -70,7 +70,7 @@ const update = async () => {
 // }}}1
 
 let requestInterval = new timers.Interval('request');
-requestInterval.runInterval(0, 25, function() {
+requestInterval.runInterval(1, 0, function() {
     update();
 });
 

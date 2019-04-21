@@ -25,7 +25,6 @@ const getTime = () => {
  */
 function Interval(name = 'default') {
     // Private Data
-    let pivotIsLocal, mode;
 
     // Counter
     let _counter = 0;
@@ -35,12 +34,15 @@ function Interval(name = 'default') {
         isFirstRun: true,
         isRequestActive: false,
         get counter() {
-            let prepCounter = _counter.toString().padStart(6, '000000');
-            return prepCounter;
+            return _counter;
         }
     };
 
-    console.log('Init interval [' + name + ']');
+    log.info({
+        context: 'constructor',
+        verbosity: 3,
+        message: 'Interval initialised as [' + name + ']',
+    });
 
     // Public access point.
     let self = {};
@@ -67,15 +69,35 @@ function Interval(name = 'default') {
      */
     const getNextTick = function(mySkip, myInterval, currentSeconds) {
         let CONTEXT = 'getNextTick';
+
         // Local Data
-        let myGap, pivotIsLocal, mode, nextUpdateMilliseconds;
+        let myGap, pivotIsLocal, mode, nextUpdateMilliseconds, identifier;
 
-        // Debug
-        console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> SKIP (MINUTES):' + mySkip + ', ' +
-            'INTERVAL (SECONDS):' + myInterval + ', ' +
-            'ENTRY AT (SECONDS):' + currentSeconds);
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: '[{0}] Parameters: TIME <{1}>, INDEX <{2}>,  SKIP (MINUTES) <{3}>, INTERVAL (SECONDS) <{4}>, ENTRY TIME (SECONDS) <{5}>'
+                .stringFormatter(
+                    name,
+                    getTime(),
+                    getState('counter'),
+                    mySkip,
+                    myInterval,
+                    currentSeconds
+                )
+        });
 
-        console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> IS_FIRST_RUN (STATE):' + getState('isFirstRun') + ', IS_REQUEST_ACTIVE (STATE):' + getState('isRequestActive'));
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: '[{0}] State flags: IS_FIRST_RUN <{1}>, IS_REQUEST_ACTIVE <{2}>'
+                .stringFormatter(
+                    name,
+                    getState('isFirstRun').toString(),
+                    getState('isRequestActive').toString()
+                )
+        });
+
 
         // Pivot detection for our entry point.
         // For cases where our entry is before the INTERVAL or right at the INTERVAL,
@@ -86,28 +108,36 @@ function Interval(name = 'default') {
         if (currentSeconds <= myInterval) {
             // Just a debug.
             if (currentSeconds == myInterval) {
-                console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> start_time_aligned');
+                identifier = 'aligned';
             } else {
-                console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> start_time_ahead');
+                identifier = 'ahead';
             }
+
             pivotIsLocal = true;
         } else {
-            console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> start_time_on_next_minute');
+            identifier = 'on_next_minute';
             pivotIsLocal = false;
         }
 
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: '[{0}] Identifier: START_TIME <{1}>'
+                .stringFormatter(
+                    name,
+                    identifier
+                )
+        });
+
         if (currentSeconds % 60 == 0) {
             // We need to move $INTERVAL seconds forward.
-            console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> We are at ??:00.');
             mode = 0;
         } else {
             if (currentSeconds == myInterval) {
                 // We need to move 60 seconds forward.
-                console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> We are at the interval of (' + myInterval + ') seconds.');
                 mode = 1;
             } else {
                 // We need to calculate how much we will be jumping forward.
-                console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> We are at an arbitary time location.');
                 mode = 2;
             }
         }
@@ -118,7 +148,14 @@ function Interval(name = 'default') {
             // Reset skip only if we are in the first cycle.
             if (getState('isFirstRun')) {
                 // Need to reset skip.
-                console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> Resetting the SKIP value.');
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: '[{0}] Resetting any SKIP values on the first run.'
+                        .stringFormatter(
+                            name
+                        )
+                });
                 mySkip = 0;
             }
 
@@ -138,11 +175,18 @@ function Interval(name = 'default') {
             }
         }
 
-        // Debug
-        console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> LOCAL_PIVOT:' + pivotIsLocal + ', ' +
-            'MODE:' + mode + ', ' +
-            'SKIP:' + mySkip + ', ' +
-            'GAP:' + myGap + ' seconds');
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: '[{0}] Interval values: LOCAL_PIVOT <{1}>, MODE <{2}>, SKIP <{3}>, GAP (SECONDS) <{4}>'
+                .stringFormatter(
+                    name,
+                    pivotIsLocal.toString(),
+                    mode,
+                    mySkip,
+                    myGap
+                )
+        });
 
         nextUpdateMilliseconds = (myGap * 1000) + (mySkip * 60 * 1000);
         return nextUpdateMilliseconds;
@@ -153,27 +197,46 @@ function Interval(name = 'default') {
      * This is a recursive function and is the main timer reposible for the cycle.
      */
     const startInterval = function(timeToNextTick, skip, interval, callback) {
+        let CONTEXT = 'startInterval';
+
         // Plant the next run.
         setTimeout(function() {
-            console.log(';\n\t(' + getTime() + ') Performing data push ...');
-
-            // REMOTE API CALL
-            // PUSH BLOCK STARTS
-            console.time('\t\t>>>push');
-
             if(getState('isRequestActive')){
-                console.log('\t(' + getTime() + ') Previous async REQUEST already running. Skipping ...');
+                // Skip the interval task if previous task still active.
+                log.warning({
+                    context: CONTEXT,
+                    verbosity: 3,
+                    message: '[{0}] Previous interval task is still active, skipping most recent request at {1}'
+                        .stringFormatter(
+                            name,
+                            getTime().toString()
+                        )
+                });
             }else{
-                // PERFORM THE WEBSOCKETS DATA PUSH.
-                console.log('\t\t>>>___DATA_PUSH at ' + getTime());
+                // Perform the interval task.
+                log.info({
+                    context: CONTEXT,
+                    verbosity: 3,
+                    message: '[{0}] Performing interval task at {1}'
+                        .stringFormatter(
+                            name,
+                            getTime().toString()
+                        )
+                });
 
                 // Execute the callback.
                 callback();
 
             }
-            // PUSH BLOCK ENDS
-            console.timeEnd('\t\t>>>push');
-            console.log('\t(' + getTime() + ') Restarting runInterval() ...\n;');
+
+            log.info({
+                context: CONTEXT,
+                verbosity: 3,
+                message: '[{0}] Restarting interval cycle.'
+                    .stringFormatter(
+                        name,
+                    )
+            });
 
             // Stick to the raw parameters.
             self.runInterval(skip, interval, callback);
@@ -187,7 +250,6 @@ function Interval(name = 'default') {
      * A public method dedicated to the control of the states.
      */
     self.setState = function(item, value) {
-        console.log('*** ITEM:', item, 'VALUE:', value, ' ***');
         state[item] = value;
     };
     // }}}2
@@ -198,15 +260,23 @@ function Interval(name = 'default') {
     self.runInterval = function(skip, interval, callback) {
         let CONTEXT = 'runInterval';
         var date = new Date();
-        let myInterval = interval;              // Used
-        let mySkip = skip;                      // Used
-        let currentSeconds = date.getSeconds(); // Used
-        let timeSignature = getTime();
+        let myInterval = interval;
+        let mySkip = skip;
+        let currentSeconds = date.getSeconds();
 
         // Start
         updateCounter(1);
         let timeToNextTick = getNextTick(mySkip, myInterval, currentSeconds);
-        console.log('[' + name + '.' + CONTEXT + '] (' + getState('counter') + ') <' + getTime() + '> Next data push expected in ' + timeToNextTick + ' milliseconds.');
+
+        log.info({
+            context: CONTEXT,
+            verbosity: 3,
+            message: '[{0}] Next interval task will be called in {1} milliseconds.'
+                .stringFormatter(
+                    name,
+                    timeToNextTick.toString()
+                )
+        });
 
         startInterval(timeToNextTick, mySkip, myInterval, callback);
 
