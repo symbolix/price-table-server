@@ -1,5 +1,11 @@
+/*
+ * lib-utils
+ *
+ * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
+ * Licensed under the MIT license.
+ */
+
 'use strict';
-// lib/utils.js
 
 // Project Imports
 const ccxt = require ('ccxt');
@@ -149,24 +155,20 @@ function _formatNumbers(raw) {
 
 /* Public Functions */
 
-// @public moduleTest() {{{1
-//  ARGS:
-//      No arguments.
-//  INFO:
-//      A simple module test function.
-//
+/** moduleTest() {{{1
+* A simple module test function.
+*/
 function moduleTest(){
     console.log('__UTILS__ module accessed.');
 }
 //}}}1
 
-// @public async writeState(filepath, data) {{{1
-//  ARGS:
-//      filepath: full or relative path to a state file.
-//      data    : A data container object.
-//  NOTE:
-//      A function to write a JSON cache file.
-//
+/** async writeState(filepath, data) {{{1
+ * A function to write a JSON cache file.
+ * @param {string} filepath Full or relative path to a state file.
+ * @param {object} data A data container object.
+ * @returns {} response
+ */
 async function writeState(filepath, data) {
     const CONTEXT = 'writeState';
     let response;
@@ -212,16 +214,13 @@ async function writeState(filepath, data) {
 }
 // }}}1
 
-// @public async readState(filepath) {{{1
-//
-//  ARGS:
-//      filepath: full or relative path to a state file.
-//      callback: a function to be executed on promise delivery.
-//  INFO:
-//      A promise wrapper for the JSON cache file request.
-//  RETURNS:
-//      object { payload: obj, retry: boolean, state: boolean }
-//
+/** async readState(filepath) {{{1
+ * A promise wrapper for the JSON cache file request.
+ * @param {string}   filepath: full or relative path to a state file.
+ * @param {function} callback: a function to be executed on promise delivery.
+ *
+ * @returns {object} That is structured as { payload: obj, retry: boolean, state: boolean }
+ */
 async function readState(filepath){
     let response = {
         payload: null,
@@ -291,91 +290,13 @@ async function readState(filepath){
 }
 // }}}1
 
-// @public timeDiff(date1, date2)
-//      date1: first date object.
-//      date2: second date object.
-//      (https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds)
-// {{{1
-function timeDiff(date1, date2){
-    var res = Math.abs(date1 - date2) / 1000;
-
-    // get total days between two dates
-    var days = Math.floor(res / 86400);
-
-    // get hours
-    var hours = Math.floor(res/ 3600) % 24;
-
-    // get minutes
-    var minutes = Math.floor(res / 60) % 60;
-
-    // get seconds
-    var seconds = res % 60;
-
-    return {
-        days: days,
-        hours: hours,
-        minutes: minutes,
-        seconds: seconds,
-        isOld: function(ageObj1, ageObj2) {
-            console.log('days_limit', ageObj1.days, '?', 'days_age', ageObj2.days);
-            // old: days
-            if(ageObj1.days < ageObj2.days){
-                console.log('old (days)');
-                return true;
-            }else{
-                if(ageObj1.days == ageObj2.days){
-                    console.log('\tnext: hours');
-                    console.log('\thours_limit', ageObj1.hours, '?', 'hours_age', ageObj2.hours);
-                    if(ageObj1.hours < ageObj2.hours){
-                        console.log('\told (hours)');
-                        return true;
-                    }else{
-                        if(ageObj1.hours == ageObj2.hours){
-                            console.log('\t\tnext (minutes)');
-                            console.log('\t\tminutes_limit', ageObj1.minutes, '?', 'minutes_age', ageObj2.minutes);
-                            if(ageObj1.minutes < ageObj2.minutes){
-                                // old: minutes
-                                console.log('\t\told (minutes)');
-                                return true;
-                            }else{
-                                // equal: minutes
-                                if(ageObj1.minutes == ageObj2.minutes){
-                                    console.log('\t\t\tnext (seconds)');
-                                    console.log('\t\t\tseconds_limit', ageObj1.seconds, '?', 'seconds_age', ageObj2.seconds);
-                                    if(ageObj1.seconds < ageObj2.seconds){
-                                        console.log('\t\t\told (seconds)');
-                                        return true;
-                                    }else{
-                                        console.log('\t\t\tNOT old (seconds)');
-                                        return false;
-                                    }
-                                // not old: minutes
-                                }else{
-                                    console.log('\t\tNOT old (minutes)');
-                                    return false;
-                                }
-                            }
-                        }else{
-                            console.log('\tNOT old (hours)');
-                            return false;
-                        }
-                    }
-                }else{
-                    console.log('NOT old (days)');
-                    return false;
-                }
-            }
-        }
-    };
-}
-// }}}1
-
 /** getAge (startDate, endDate) {{{1
  * Generates an age object based on the provided start and end dates.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
  * (https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds)
- * @parm {object} startDate : The date object for the start date.
- * @parm {object} endDate   : The date object for the end date.
+ * @param {object} startDate : The date object for the start date.
+ * @param {object} endDate   : The date object for the end date.
+ * @returns {object} The difference in days, hours, minutes, seconds
  */
 function getAge(startDate, endDate) {
     var res = Math.abs(startDate - endDate) / 1000;
@@ -407,21 +328,21 @@ function getAge(startDate, endDate) {
 }
 // }}}1
 
-/** getAge.isOld (ageLimitObj) {{{1
+/** getAge.isUpToDate (ageLimitObj) {{{1
  * This is a public method attached to the getAge() function.
  * Relies on internal data of a getAge() instance.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
- * @parm {object} ageLimitObj : An age limit object structured in the following
- * way: { days: 0, hours: 0, minutes: 5, seconds: 59 }
+ * @param {object} ageLimitObj structured in the folllowing way: { days: 0, hours: 0, minutes: 5, seconds: 59 }
+ * @returns {boolean} TRUE for up-to-date and FALSE for old states.
  */
 // Attach the following public utility method to getAge()
-getAge.prototype.isOld = function(ageLimitObj) {
-    const CONTEXT = this.constructor.name + '.isOld';
+getAge.prototype.isUpToDate = function(ageLimitObj) {
+    const CONTEXT = this.constructor.name + '.isUpToDate';
 
-    // ageObj1: is the inherited internal AGE object (this.diff).
-    // ageObj2: is the AGE_LIMIT object.
-    let ageObj1 = this.diff;
-    let ageObj2 = ageLimitObj;
+    // currentAge: is the inherited internal AGE object (this.diff).
+    // limitAge: is the AGE_LIMIT object.
+    let currentAge = this.diff;
+    let limitAge = ageLimitObj;
 
     // Keys template.
     const UNITS = ['days', 'hours', 'minutes', 'seconds'];
@@ -431,20 +352,22 @@ getAge.prototype.isOld = function(ageLimitObj) {
 
     // We'll loop over the UNITS array. The key is that, if the current unit
     // exceeds the limit unit, we use an early return to break.
-    while (unitsIndex < UNITS.length) {
+    while (unitsIndex <= (UNITS.length - 1)) {
         log.debug({
             context: CONTEXT,
             verbosity: 7,
-            message: 'Cycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + ageObj2[UNITS[unitsIndex]] + '], current value: [' + ageObj1[UNITS[unitsIndex]] + '].',
+            message: 'Cycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + limitAge[UNITS[unitsIndex]] + '], current value: [' + currentAge[UNITS[unitsIndex]] + '].',
         });
+
+
         // Here we check: is our limit unit less than our current?
-        if (ageObj1[UNITS[unitsIndex]] > ageObj2[UNITS[unitsIndex]]) {
+        if (limitAge[UNITS[unitsIndex]] < currentAge[UNITS[unitsIndex]]) {
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'STATE_CACHE [IS_OLD]: TRUE',
+                message: 'IS_UP_TO_DATE:false'
             });
-            return true;
+            return false;
         }
 
         // Increment our UNITS array pointer.
@@ -454,14 +377,16 @@ getAge.prototype.isOld = function(ageLimitObj) {
     log.debug({
         context: CONTEXT,
         verbosity: 7,
-        message: 'STATE_CACHE [IS_OLD]: FALSE'
+        message: 'IS_UP_TO_DATE:true'
     });
-    return false;
+    return true;
 };
 // }}}1
 
-// @public generatePayload(dataObject)
-// {{{1
+/** generatePayload(dataObject) {{{1
+ *  Creates the payload object.
+ *  @param {object} data Expects a data object.
+ */
 function generatePayload(dataObj){
     // Payload Template
     let payload = {
@@ -495,8 +420,6 @@ function generatePayload(dataObj){
     }
 
     for(var asset in dataObj.data.current.assets){
-        // asset
-        // console.log(asset);
         // Build Values
         let _currentPrice = _formatNumbers(dataObj.data.current.assets[asset].last);
         let _previousPrice = _formatNumbers(dataObj.data.previous.assets[asset].last);
@@ -527,16 +450,13 @@ function generatePayload(dataObj){
 }
 // }}}1
 
-// @public sendExchangeRequest(id, pair, symbols) {{{1
-//
-//  ARGS:
-//      id: exchange id.
-//      pair: fiat pair.
-//      symbols: array of symbols
-//
-//  INFO:
-//      A wrapper for the exchange request.
-//
+/** sendExchangeRequest(id, pair, symbols) {{{1
+ * A wrapper for the exchange request.
+ * @params {string} id The exchange id.
+ * @params {string} pair The fiat pair.
+ * @params {array} symbols An array of symbols.
+ * @returns {object} A data container populated with ticker data.
+ */
 async function sendExchangeRequest(id, pair, symbols){
     const CONTEXT = 'exchangeRequest';
     let processData = {
@@ -573,12 +493,12 @@ async function sendExchangeRequest(id, pair, symbols){
         // Try fetching the ticker for the symbol existing on the exchange.
         try {
             // (TEST): start
-            const delay = (ms) => new Promise(resolve => setTimeout(() => {
-                console.log(`___TEST___: Deliberate slow-down activated. Waiting for ${ms} millisecond(s) ...`);
-                resolve('ok');
-            }, ms));
-
-            await delay(9000);
+            // const delay = (ms) => new Promise(resolve => setTimeout(() => {
+            //     console.log(`___TEST___: Deliberate slow-down activated. Waiting for ${ms} millisecond(s) ...`);
+            //     resolve('ok');
+            // }, ms));
+            //
+            // await delay(9000);
             // (TEST): end
 
             // Actual Request
@@ -651,7 +571,6 @@ module.exports = {
     moduleTest: moduleTest,
     writeState: writeState,
     readState: readState,
-    timeDiff: timeDiff,
     getAge: getAge,
     generatePayload: generatePayload,
     sendExchangeRequest: sendExchangeRequest

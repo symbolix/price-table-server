@@ -43,10 +43,6 @@ function moduleTest(){
     console.log('__DATA__ module accessed.');
 }
 
-function objClone(){
-    console.log('objClone is NOT implemented yet.');
-}
-
 /* Setters and Getters*/
 
 // update {{{1

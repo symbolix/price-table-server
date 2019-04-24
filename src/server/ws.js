@@ -6,7 +6,8 @@ const { table } = require('table');
 
 // A simple server-side script that serves a JSON object.
 var WebSocketServer = require('ws').Server;
-var wss = new WebSocketServer({ port: 9000 });
+const express = require('express');
+const bodyParser = require('body-parser');
 
 // Local Imports
 const utils = require('./lib/utils');
@@ -17,6 +18,7 @@ const logging = require('./lib/logging');
 const tables = require('./lib/tables');
 const schema = require('./lib/data-schema.js');
 const timers = require('./lib/timers.js');
+const assetRoutes = require('./lib/api/routes/assetRoutes');
 
 // Symbols {{{1
 const SYMBOLS = [
@@ -41,6 +43,7 @@ const EXCHANGE = 'kraken';
 
 // Globals
 const APP_VERSION = globals.get('APP_VERSION');
+const WEBSOCKETS_IS_ACTIVE = false;
 
 // Intro
 !config.get('SILENT') && console.log(`\nPrice Table Server ${APP_VERSION}`);
@@ -632,12 +635,7 @@ function validateCache(cache) {
                 message: 'AGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
             });
 
-            // Validate state-cache age.
-            // --- OVERRIDE ---
-            result.upToDate = true;
-
-            /* --- REENABLE THIS! ---
-            if(currentAgeObj.isOld(limit)){
+            if(!currentAgeObj.isUpToDate(limit)){
                 log.warning({
                     context: CONTEXT,
                     verbosity: 1,
@@ -652,7 +650,6 @@ function validateCache(cache) {
                 });
                 result.upToDate = true;
             }
-            */
         } else {
             throw new Error('Invalid STATE_CACHE_DATA.');
         }
@@ -729,11 +726,13 @@ const update = async () => {
             });
         }
 
-        // Prepare the payload.
-        let payload = utils.generatePayload(data.exportState());
+        if(WEBSOCKETS_IS_ACTIVE){
+            // Prepare the payload.
+            let payload = utils.generatePayload(data.exportState());
 
-        // Call the emission hook within the web-socket loop.
-        activeEmission(payload);
+            // Call the emission hook within the web-socket loop.
+            activeWebSocketEmission(payload);
+        }
 
         // Success Label
         log.label({
@@ -763,25 +762,60 @@ const update = async () => {
 };
 // }}}1
 
-// Define Active Emission Hook {{{1
-var activeEmitter = function() {};
+// Define Active WebSocket Emission Hook {{{1
+var activeWebSocketEmitter = function() {};
 //
 // }}}1
 
-// Define a hook for the active emission point. {{{1
-var activeEmission = function(input) {
-    activeEmitter(input);
+// Define a hook for the active websocket emission point. {{{1
+var activeWebSocketEmission = function(input) {
+    activeWebSocketEmitter(input);
 };
 // }}}1
 
-/*-----------------------;
- ; Initialize WebSockets ;
- ------------------------*/
+/*------------------------------;
+ ; Initialize Server Components ;
+ ------------------------------*/
+// initExpress() {{{1
+const initExpress = (() => {
+    const CONTEXT = 'initExpress';
+
+    const app = express();
+    const PORT = 9001;
+
+    log.info({
+        context: CONTEXT,
+        verbosity: 3,
+        message: ('Starting REST API server.')
+    });
+
+    app.use(bodyParser.urlencoded({ extended: true }));
+    app.use(bodyParser.json());
+
+    const routes = assetRoutes.getRoutes;
+    routes(app);
+
+    app.get('/', (req, res) =>
+        res.send(`REST API server is running on port ${PORT}`)
+    );
+
+    app.listen(PORT, () =>
+        // console.log(`REST API server is running on port ${PORT}`)
+        log.info({
+            context: CONTEXT,
+            verbosity: 3,
+            message: (`REST API server is running on port ${PORT}`)
+        })
+    );
+});
+// }}}1
 
 // initWebSocket() {{{1
 function initWebSocket() {
     // Default message.
     const CONTEXT = 'initWebSocket';
+
+    var wss = new WebSocketServer({ port: 9000 });
 
     log.info({
         context: CONTEXT,
@@ -789,11 +823,10 @@ function initWebSocket() {
         message: ('Starting websocket server.')
     });
 
-    var dataSchema = schema.template;
+    var dataSchema = schema.webSocketTemplate;
     const message = {
         serverAppName: 'Price Table Server',
         serverVersion: APP_VERSION,
-        schemaVersion: schema.version
     };
 
     dataSchema['message'] = message;
@@ -834,7 +867,7 @@ function initWebSocket() {
         });
         //}}}2
         // Plug the ACTIVE emission hook. {{{2
-        activeEmitter = function(input) {
+        activeWebSocketEmitter = function(input) {
             // Debug the input data stream.
             // console.log('INPUT_STREAM:', input);
 
@@ -1107,11 +1140,12 @@ function initWebSocket() {
         requestInterval.runInterval(1, 0, function() {
             update();
         });
-        initWebSocket();
+        //initWebSocket();
+        initExpress();
     } catch(err) {
         log.severe({
             context: CONTEXT,
-            message: ('Main service has failed!\n' + err)
+            message: ('Main service has failed!\n' + err.stack)
         });
         process.exit(1);
     }
