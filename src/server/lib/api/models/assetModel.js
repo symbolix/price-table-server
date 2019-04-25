@@ -1,5 +1,5 @@
 /*
- * R£ST Asset Model
+ * REST Asset Model
  *
  * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
  * Licensed under the MIT license.
@@ -8,7 +8,7 @@
 'use strict';
 
 // Project Imports
-// None.
+// None
 
 function Payload() {
     this.storage = {};

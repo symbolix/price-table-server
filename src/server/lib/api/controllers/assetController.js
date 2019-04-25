@@ -1,5 +1,5 @@
 /*
- * R£ST Asset Controller
+ * REST Asset Controller
  *
  * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
  * Licensed under the MIT license.
@@ -20,7 +20,7 @@ PayloadModel.init(schema.restApiTemplate);
 const Payload = (() => {
 
     // Private Methods
-    let privateMethods = {
+    let local = {
         updatePayload: (data) => {
             PayloadModel.update(data);
         }
@@ -32,8 +32,7 @@ const Payload = (() => {
             let error, response, state;
             try {
                 state = utils.generatePayload(data.exportState());
-                // console.log('STATE:', state);
-                privateMethods.updatePayload(state);
+                local.updatePayload(state);
                 response = PayloadModel.findAll();
                 callback(error, response);
             }catch(err){
