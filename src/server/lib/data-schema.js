@@ -15,14 +15,21 @@
  * Template for the protocol and data strage containers.
  */
 
+// TODO: Diagnostics template!
+
+
 /** Package Template {{{2
  * Template for the response data container.
+ * pairs    : Market pairs.
+ * utility  : A field for extra data.
+ *      exportId    : An unique identifier that is updated each time the
+ *                    package the data export is generated.
  */
 let packageTemplate = {
     package: {
         pairs: {
             EUR: {
-                assets:{
+                assets: {
                     btc: {
                         symbol: 'BTC/EUR',
                         formatted: {
@@ -41,7 +48,29 @@ let packageTemplate = {
                     }
                 }
             },
-            USD: {}
+            USD: {
+                assets: {
+                    btc: {
+                        symbol: 'BTC/USD',
+                        formatted: {
+                            current_price: null,
+                            previous_price: null,
+                            change_price: null,
+                            change_percent: null
+                        },
+                        original: {
+                            current_price: null,
+                            previous_price: null,
+                            change_price: null,
+                            change_percent: null
+                        },
+                        trend: null
+                    }
+                }
+            }
+        },
+        utility: {
+            exportId: null
         }
     }
 };
@@ -55,14 +84,28 @@ let dataTemplate = {
         current: {
             pairs: {
                 EUR: {
-                    assets: {},
+                    assets: {
+                        btc: {
+                            symbol: 'BTC/EUR',
+                            timestamp: null,
+                            last: null,
+                            success: null
+                        }
+                    },
                     signature: {
                         timestamp: null,
                         success: null
                     }
                 },
                 USD: {
-                    assets: {},
+                    assets: {
+                        btc: {
+                            symbol: 'BTC/USD',
+                            timestamp: null,
+                            last: null,
+                            success: null
+                        },
+                    },
                     signature: {
                         timestamp: null,
                         success: null
@@ -73,21 +116,35 @@ let dataTemplate = {
         previous: {
             pairs: {
                 EUR: {
-                    assets: {},
+                    assets: {
+                        btc: {
+                            symbol: 'BTC/EUR',
+                            timestamp: null,
+                            last: null,
+                            success: null
+                        }
+                    },
                     signature: {
                         timestamp: null,
                         success: null
                     }
                 },
                 USD: {
-                    assets: {},
+                    assets: {
+                        btc: {
+                            symbol: 'BTC/USD',
+                            timestamp: null,
+                            last: null,
+                            success: null
+                        },
+                    },
                     signature: {
                         timestamp: null,
                         success: null
                     }
                 }
             }
-        }
+        },
     }
 };
 //}}}2
@@ -98,10 +155,11 @@ let dataTemplate = {
  * feedback : This is reserved for internal states.
  *      records     : Section reserved for any server side messages, validation and stamping.
  *          message     : Any messages.
- *          stateId     : Every unique data state should have an id. This will
- *                        help the client figure out if the REST responses are fresh or
- *                        out-of -data.
+ *          stateId     : Every unique send should have an id.
+ *          timestamp   : Time signature for when the response was created.
  *      diagnostics : Reserved for server-to-client configuration feedback.
+ *                    This should be controlled by a secondary container as it
+ *                    will storing information about the state of the server.
  * package  : The payload.
  */
 var restApiTemplate = {
@@ -147,7 +205,8 @@ var webSocketTemplate = {
 module.exports = {
     webSocketTemplate: webSocketTemplate,
     restApiTemplate: restApiTemplate,
-    dataTemplate: dataTemplate
+    dataTemplate: dataTemplate,
+    packageTemplate: packageTemplate
 };
 
 // vim: fdm=marker ts=4
