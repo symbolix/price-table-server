@@ -15,8 +15,7 @@
  * Template for the protocol and data strage containers.
  */
 
-// TODO: Diagnostics template!
-
+/* Persistent Data Templates */
 
 /** Package Template {{{2
  * Template for the response data container.
@@ -148,6 +147,10 @@ let dataTemplate = {
     }
 };
 //}}}2
+
+// TODO: Diagnostics template!
+
+/* Client Response Templates */
 
 /** restApiTemplate {{{2
  * Template for the REST API carrier.
