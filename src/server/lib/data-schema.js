@@ -31,6 +31,8 @@ let packageTemplate = {
                 assets: {
                     btc: {
                         symbol: 'BTC/EUR',
+                        fractional_slots: null,
+                        timestamp: null,
                         formatted: {
                             current_price: null,
                             previous_price: null,
@@ -51,6 +53,9 @@ let packageTemplate = {
                 assets: {
                     btc: {
                         symbol: 'BTC/USD',
+                        decimals: null,
+                        fractional_slots: null,
+                        timestamp: null,
                         formatted: {
                             current_price: null,
                             previous_price: null,
@@ -69,7 +74,8 @@ let packageTemplate = {
             }
         },
         utility: {
-            exportId: null
+            exportId: null,
+            exportTimestamp: null
         }
     }
 };
@@ -77,74 +83,55 @@ let packageTemplate = {
 
 /** Data Template {{{2
  * Template for the persistent data container.
+ * Structure:
+ *      SECTION         : 'data' or 'utility' (static).
+ *      FIELD           : 'current' or 'previous' (static).
+ *      PAIR            : 'EUR', 'USD', etc (dynamic).
+ *      COMPONENT       : 'assets' or 'signature' (static).
+ *      ELEMENT         : An element of the component.
+ * Notes:
+ *      The ELEMENT of the COMPONENT is expected to be an {} for 'asset' type components.
+ *      The 'signature' section is for storing generic data for each PAIR.
+ *      The 'assets' section is for storing individual assets for each PAIR.
+ *      Only end-points get the 'null' value.
  */
 let dataTemplate = {
     data: {
         current: {
-            pairs: {
-                EUR: {
-                    assets: {
-                        btc: {
-                            symbol: 'BTC/EUR',
-                            timestamp: null,
-                            last: null,
-                            success: null
-                        }
-                    },
-                    signature: {
-                        timestamp: null,
-                        success: null
-                    }
+            EUR: {
+                assets: {
+                    btc: null,
+                    eth: null,
+                    zec: null,
+                    ltc: null,
+                    xmr: null,
+                    dash: null,
+                    eos: null,
+                    etc: null,
+                    xlm: null,
+                    xrp: null
                 },
-                USD: {
-                    assets: {
-                        btc: {
-                            symbol: 'BTC/USD',
-                            timestamp: null,
-                            last: null,
-                            success: null
-                        },
-                    },
-                    signature: {
-                        timestamp: null,
-                        success: null
-                    }
-                }
+                signature: null
+            },
+            USD: {
+                assets: {
+                    btc: null,
+                    eth: null,
+                    zec: null,
+                    ltc: null,
+                    xmr: null,
+                    dash: null,
+                    eos: null,
+                    etc: null,
+                    xlm: null,
+                    xrp: null
+                },
+                signature: null
             }
         },
-        previous: {
-            pairs: {
-                EUR: {
-                    assets: {
-                        btc: {
-                            symbol: 'BTC/EUR',
-                            timestamp: null,
-                            last: null,
-                            success: null
-                        }
-                    },
-                    signature: {
-                        timestamp: null,
-                        success: null
-                    }
-                },
-                USD: {
-                    assets: {
-                        btc: {
-                            symbol: 'BTC/USD',
-                            timestamp: null,
-                            last: null,
-                            success: null
-                        },
-                    },
-                    signature: {
-                        timestamp: null,
-                        success: null
-                    }
-                }
-            }
-        },
-    }
+        previous: {}
+    },
+    utility: {}
 };
 //}}}2
 

@@ -384,7 +384,13 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
 // }}}1
 
 /** generatePayload(dataObject) {{{1
- *  Creates the payload object.
+ * Creates the payload object.
+ * Calculations:
+ *      Increase = New Number - Original Number
+ *      % increase = Increase ÷ Original Number × 100
+ *      Decrease = Original Number - New Number
+ *      % decrease = Decrease ÷ Original Number × 100
+ *      (Note how the % calculations are identical,-/+ determine the increase or decrease)
  *  @param {object} data Expects a data object.
  */
 function generatePayload(dataObj){
