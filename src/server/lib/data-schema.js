@@ -90,48 +90,23 @@ let packageTemplate = {
  *      COMPONENT       : 'assets' or 'signature' (static).
  *      ELEMENT         : An element of the component.
  * Notes:
- *      The ELEMENT of the COMPONENT is expected to be an {} for 'asset' type components.
- *      The 'signature' section is for storing generic data for each PAIR.
- *      The 'assets' section is for storing individual assets for each PAIR.
- *      Only end-points get the 'null' value.
+ *       - The ELEMENT of the COMPONENT is expected to be an {} for 'asset' type components.
+ *       - The 'signature' section is for storing generic data for each PAIR.
+ *       - The 'assets' section is for storing individual assets for each PAIR.
+ *       - Only end-points get the 'null' value.
+ *       - At least one child (FIELD) is expected under each SECTION.
  */
 let dataTemplate = {
     data: {
-        current: {
-            EUR: {
-                assets: {
-                    btc: null,
-                    eth: null,
-                    zec: null,
-                    ltc: null,
-                    xmr: null,
-                    dash: null,
-                    eos: null,
-                    etc: null,
-                    xlm: null,
-                    xrp: null
-                },
-                signature: null
-            },
-            USD: {
-                assets: {
-                    btc: null,
-                    eth: null,
-                    zec: null,
-                    ltc: null,
-                    xmr: null,
-                    dash: null,
-                    eos: null,
-                    etc: null,
-                    xlm: null,
-                    xrp: null
-                },
-                signature: null
-            }
-        },
+        current: {},
         previous: {}
     },
-    utility: {}
+    utility: {
+        attributes: {
+            exportId: null,
+            exportTimestamp: null
+        }
+    }
 };
 //}}}2
 

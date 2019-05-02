@@ -1,5 +1,8 @@
 // lib/data-container.js
 
+// Global Imports
+var util = require('util');
+
 // Local Imports
 var logging = require('./logging');
 
@@ -17,10 +20,10 @@ let dataObj = {};
 
 /* Private Setters and Getters*/
 
-/** @private set(section, field, pair, component, element, val) {{{1
+/** @private [DEPRECATED] set(section, field, pair, component, element, val) {{{1
  * A private getter for the data container.
  */
-function set(section, field, pair, component, element, val){
+function __set(section, field, pair, component, element, val){
     // Check the SECTION.
     if(dataObj.hasOwnProperty(section)){
         if(section==='utility'){
@@ -135,12 +138,12 @@ function get({section=null, field=null, pair=null, component=null, key=null}){
 }
 //}}}1
 
-/** @private set2(section, field, pair, component, element, val) {{{1
+/** @private [DEPRECATED] set(section, field, pair, component, element, val) {{{1
  * A private getter for the data container.
  * 'section', 'field', 'pair' and 'component' are immutable.
  * 'element' is mutable and receives the 'value'.
  */
-function set2(section, field, pair, component, element, value){
+function ___set(section, field, pair, component, element, value){
     console.log('section:', section, '| field:', field, '| pair:', pair, '| component:', component, '| element:', element, '| value:', value);
 
     let isDeep = true;
@@ -230,6 +233,70 @@ function set2(section, field, pair, component, element, value){
     }
     // Handle ELEMENT (end)
 
+}
+//}}}1
+
+/** @private set(head, next ... [element, val]) {{{1
+ * A private low level setter for the data container.
+ * @param {Array} The first argument is the head (our entry point) and the last element is a list
+ * of a target and a value. Arguments in-between are way-points used to traverse the data-object.
+ *
+ * Since this is a lower-level private function, it expects a sanitised
+ * arguments.
+ */
+function set(...paths){
+    const bundle = arguments[arguments.length - 1];
+
+    // Sanity Checks
+    if(!util.isArray(bundle)){
+        let tmptype = typeof bundle;
+        throw new Error(('Expected an array as the last argument, instead got: ' + tmptype));
+    }
+
+    const element = bundle[0];
+    const value = bundle[1];
+
+    // Debug
+    console.log('section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element, '| value:', value);
+
+    // Remove the last element
+    paths.pop();
+    paths.push(element);
+
+    let nested = dataObj;
+
+    for (let i = 0; i < paths.length; i++) {
+        const path = paths[i];
+
+        // It is important that we explicitly check for the last element. In some cases
+        // the element string might be present up the hierarchy, we don't want
+        // to terminate the traversing abruptly because of that.
+        if (i === paths.length - 1){
+            // Set the value of the element.
+
+            // Sanity Checks
+            if(!nested.hasOwnProperty(path)){
+                throw new Error(('Unexpected target element: ' + path));
+            }
+
+            // Update the value of the element.
+            nested[path] = value;
+        }
+
+        if (path !== null && path !== element){
+            // Go to next level of nesting.
+
+            // Sanity Checks
+            if(!nested.hasOwnProperty(path)){
+                throw new Error(('Unexpected level to traverse: ' + path));
+            }
+
+            // Update reference and keep traversing.
+            nested = nested[path];
+        }
+    }
+
+    return dataObj;
 }
 //}}}1
 
@@ -428,7 +495,7 @@ function update2(options){
     }
 
     try {
-        let result = set2(section, field, pair, component, element, value);
+        let result = set(section, field, pair, component, [element, value]);
         return result;
     }catch(err){
         log.severe({
@@ -584,7 +651,7 @@ function importState(stateObject){
 
 /* EXPORTS */
 module.exports = {
-    set: set2,
+    set: set,
     init: init,
     update: update2,
     getData: getData,
