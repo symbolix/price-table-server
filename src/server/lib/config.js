@@ -1,11 +1,20 @@
-// lib/configs.js
+/*
+ * lib-config
+ *
+ * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
+ * Licensed under the MIT license.
+ */
 
-// No setter functions should be allowed.
-// Config stream is one way, running process cannot change the config until
-// further implementations.
+'use strict';
+
+// Main Configuration Data Structure
 var resources = {
+    PAIRS: ['eur', 'usd'],
+    ASSETS: ['btc', 'eth', 'zec', 'ltc', 'xmr', 'dash', 'eos', 'etc', 'xlm', 'xrp'],
+    EXCHANGE: 'kraken',
     DEBUG_DATA_FEED_STATUS: false,
     SILENT: false,
+    STATE_CACHE_FILE: './data/statecache.json',
     DEBUG: {
         console: true,
         logfile: false

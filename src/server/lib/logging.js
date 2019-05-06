@@ -6,7 +6,7 @@ const bullet = require ('string.bullet');
 const { darkGray,  magenta, black, bgRed, lightYellow, dim, red, cyan } = require ('ansicolor');
 
 // Local Imports
-const config = require('./configs');
+const config = require('./config');
 
 // Local Variables
 const operators = {

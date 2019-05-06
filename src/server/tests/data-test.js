@@ -95,6 +95,7 @@ result = data.update({section: 'utility', field: 'attributes', element: 'exportI
 result = data.update({section: 'utility', field: 'attributes', element: 'exportTimestamp', value: '1556832507'});
 
 // Direct Access API
+// Splicing the whole 'current' block at one go.
 result = data.update({
     section: 'data',
     element: 'current',

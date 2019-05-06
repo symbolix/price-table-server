@@ -257,7 +257,7 @@ function set(...paths){
     const value = bundle[1];
 
     // Debug
-    console.log('section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element, '| value:', value);
+    // console.log('section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element, '| value:', value);
 
     // Remove the last element
     paths.pop();
@@ -311,7 +311,7 @@ function init(template){
 }
 //}}}1
 
-/** update(section, field, component, element, value) {{{1
+/** [DEPRECATED] update(section, field, component, element, value) {{{1
  * Returns a boolean.
  * A public method that wraps the private set() method.
  * We do NOT tolerate any critical errors here. The method needs to be called
@@ -319,7 +319,7 @@ function init(template){
  * @param {object} An options object {section, field, pair, component, element, val}
  * @returns {boolean} Success or NOT.
  */
-function update(options){
+function __update(options){
     let CONTEXT = MODULE + '.' + 'update';
     let section, field, pair, component, element, value;
 
@@ -378,7 +378,7 @@ function update(options){
         }
     }
 
-    console.log(section, element, value);
+    // console.log(section, element, value);
 
     // Check for critical arguments.
     try {
@@ -410,7 +410,7 @@ function update(options){
 }
 // }}}1
 
-/** update2(section, field, component, element, value) {{{1
+/** update(section, field, component, element, value) {{{1
  * Returns a boolean.
  * A public method that wraps the private set() method.
  * We do NOT tolerate any critical errors here. The method needs to be called
@@ -418,7 +418,7 @@ function update(options){
  * @param {object} An options object {section, field, pair, component, element, val}
  * @returns {boolean} Success or NOT.
  */
-function update2(options){
+function update(options){
     let CONTEXT = MODULE + '.' + 'update';
     let section, field, pair, component, element, value;
 
@@ -436,7 +436,8 @@ function update2(options){
             });
 
             // Terminate
-            process.exit(1);
+            // process.exit(1);
+            throw err;
         }
     }else{
         // Handle arguments.
@@ -467,7 +468,8 @@ function update2(options){
                 });
 
                 // Terminate
-                process.exit(1);
+                // process.exit(1);
+                throw err;
             }
         }else{
             // Override value here so that it passes the argument test.
@@ -477,7 +479,7 @@ function update2(options){
         }
     }
 
-    console.log(section, element, value);
+    // console.log(section, element, value);
 
     // Check for critical arguments.
     try {
@@ -491,7 +493,8 @@ function update2(options){
         });
 
         // Terminate
-        process.exit(1);
+        throw err;
+        //process.exit(1);
     }
 
     try {
@@ -504,7 +507,8 @@ function update2(options){
         });
 
         // Terminate
-        process.exit(1);
+        throw err;
+        //process.exit(1);
     }
 }
 // }}}1
@@ -518,7 +522,7 @@ function getData(field, component, key){
 }
 // }}}1
 
-// updateSymbol {{{1
+// [DEPRECATED] updateSymbol {{{1
 // A higher level wrapper method that modifies the ASSETS section of our data container.
 // 'field' being one of the states: 'previous' or 'current'.
 function updateSymbol(field, key, value){
@@ -534,7 +538,7 @@ function getSymbol(field, key){
 }
 // }}}1
 
-// updateSignature {{{1
+// [DEPRECATED] updateSignature {{{1
 // A higher level wrapper method that modifies the ASSETS section of our data container.
 // 'field' being one of the states: 'previous' or 'current'.
 function updateSignature(field, key, value){
@@ -566,7 +570,7 @@ function getConfig(key){
 }
 // }}}1
 
-// updateField {{{1
+// updateData {{{1
 // A higher level wrapper method that modifies the FIELD section of our data container.
 // 'field' being one of the states: 'previous' or 'current'.
 function updateField(field, fieldObj, { forceGranularity = false }){
@@ -651,9 +655,8 @@ function importState(stateObject){
 
 /* EXPORTS */
 module.exports = {
-    set: set,
     init: init,
-    update: update2,
+    update: update,
     getData: getData,
     updateSymbol: updateSymbol,
     getSymbol: getSymbol,

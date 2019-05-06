@@ -65,155 +65,70 @@ const mockTickers = {
         let timestamp = new Date().getTime();
         let last = randomLastPrice(0.2597, 0.2669);
         return { symbol, timestamp, last };
+    },
+    get BTC_USD() {
+        let symbol = 'BTC/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(3891.47, 4037.63);
+        return { symbol, timestamp, last };
+    },
+    get ETH_USD() {
+        let symbol = 'ETH/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(97.74, 117.44);
+        return { symbol, timestamp, last };
+    },
+    get ZEC_USD() {
+        let symbol = 'ZEC/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(45.59, 53.71);
+        return { symbol, timestamp, last };
+    },
+    get LTC_USD() {
+        let symbol = 'LTC/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(37.47, 48.93);
+        return { symbol, timestamp, last };
+    },
+    get XMR_USD() {
+        let symbol = 'XMR/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(46.82, 59.18);
+        return { symbol, timestamp, last };
+    },
+    get DASH_USD() {
+        let symbol = 'DASH/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(61.74, 78.23);
+        return { symbol, timestamp, last };
+    },
+    get EOS_USD() {
+        let symbol = 'EOS/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(2.67, 3.19);
+        return { symbol, timestamp, last };
+    },
+    get ETC_USD() {
+        let symbol = 'ETC/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(3.97, 4.42);
+        return { symbol, timestamp, last };
+    },
+    get XLM_USD() {
+        let symbol = 'XLM/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(0.08472, 0.09126);
+        return { symbol, timestamp, last };
+    },
+    get XRP_USD() {
+        let symbol = 'XRP/USD';
+        let timestamp = new Date().getTime();
+        let last = randomLastPrice(0.2897, 0.2969);
+        return { symbol, timestamp, last };
     }
+
 };
 //}}}1
-
-// Mock Data Object {{{1
-let mockData = {
-    data: {
-        current: {
-            symbols: {
-                btc: {
-                    symbol: 'BTC/EUR',
-                    timestamp: 1546814529435,
-                    last: 2988.40,
-                    success: true
-                },
-                eth: {
-                    symbol: 'ETH/EUR',
-                    timestamp: 1546814532329,
-                    last: 135.85,
-                    success: true
-                },
-                zec: {
-                    symbol: 'ZEC/EUR',
-                    timestamp: 1546814536334,
-                    last: 53.47,
-                    success: true
-                },
-                ltc: {
-                    symbol: 'LTC/EUR',
-                    timestamp: 1546814539434,
-                    last: 34.08,
-                    success: true
-                },
-                xmr: {
-                    symbol: 'XMR/EUR',
-                    timestamp: 1546814546214,
-                    last: 48.11,
-                    success: true
-                },
-                dash: {
-                    symbol: 'DASH/EUR',
-                    timestamp: 1546814547370,
-                    last: 73.968,
-                    success: true
-                },
-                eos: {
-                    symbol: 'EOS/EUR',
-                    timestamp: 1546814550195,
-                    last: 2.5072,
-                    success: true
-                },
-                etc: {
-                    symbol: 'ETC/EUR',
-                    timestamp: 1546814552288,
-                    last: 4.712,
-                    success: true
-                },
-                xlm: {
-                    symbol: 'XLM/EUR',
-                    timestamp: 1546814555452,
-                    last: 0.105513,
-                    success: true
-                },
-                xrp: {
-                    symbol: 'XRP/EUR',
-                    timestamp: 1546814558315,
-                    last: 0.32003,
-                    success: true
-                }
-            },
-            info: {
-                timestamp: 1546814558316,
-                success: true
-            }
-        },
-        previous: {
-            symbols: {
-                btc: {
-                    symbol: 'BTC/EUR',
-                    timestamp: 1546814475535,
-                    last: 3538.2,
-                    success: true
-                },
-                eth: {
-                    symbol: 'ETH/EUR',
-                    timestamp: 1546814477965,
-                    last: 135.9,
-                    success: true
-                },
-                zec: {
-                    symbol: 'ZEC/EUR',
-                    timestamp: 1546814481472,
-                    last: 53.47,
-                    success: true
-                },
-                ltc: {
-                    symbol: 'LTC/EUR',
-                    timestamp: 1546814483557,
-                    last: 34.08,
-                    success: true
-                },
-                xmr: {
-                    symbol: 'XMR/EUR',
-                    timestamp: 1546814487417,
-                    last: 48.02,
-                    success: true
-                },
-                dash: {
-                    symbol: 'DASH/EUR',
-                    timestamp: 1546814490341,
-                    last: 73.968,
-                    success: true
-                },
-                eos: {
-                    symbol: 'EOS/EUR',
-                    timestamp: 1546814492554,
-                    last: 2.5133,
-                    success: true
-                },
-                etc: {
-                    symbol: 'ETC/EUR',
-                    timestamp: 1546814495574,
-                    last: 4.717,
-                    success: true
-                },
-                xlm: {
-                    symbol: 'XLM/EUR',
-                    timestamp: 1546814499426,
-                    last: 0.105402,
-                    success: true
-                },
-                xrp: {
-                    symbol: 'XRP/EUR',
-                    timestamp: 1546814501577,
-                    last: 0.32,
-                    success: true
-                }
-            },
-            info: {
-                timestamp: 1546814501578,
-                success: true
-            }
-        }
-    },
-    config: {
-        pair: 'EUR'
-    }
-};
-// }}}1
 
 /* Private Functions*/
 

@@ -102,15 +102,10 @@ let dataTemplate = {
         previous: {}
     },
     utility: {
-        attributes: {
-            exportId: null,
-            exportTimestamp: null
-        }
+        attributes: {}
     }
 };
 //}}}2
-
-// TODO: Diagnostics template!
 
 /* Client Response Templates */
 
@@ -119,7 +114,6 @@ let dataTemplate = {
  * static   : Static data is the data that will NOT change.
  * feedback : This is reserved for internal states.
  *      records     : Section reserved for any server side messages, validation and stamping.
- *          message     : Any messages.
  *          stateId     : Every unique send should have an id.
  *          timestamp   : Time signature for when the response was created.
  *      diagnostics : Reserved for server-to-client configuration feedback.
@@ -136,9 +130,8 @@ var restApiTemplate = {
     },
     feedback: {
         records: {
-            message: null,
-            stateId: null,
-            timestamp: []
+            requestId: null,
+            requestTimestamp: []
         },
         diagnostics: {
             flags: {}
