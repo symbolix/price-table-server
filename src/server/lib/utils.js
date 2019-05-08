@@ -13,8 +13,9 @@ const fs = require('fs');
 const { ExchangeNotAvailable, ExchangeError, DDoSProtection, RequestTimeout } = require ('ccxt/js/base/errors');
 
 // Local Imports
-var logging = require('./logging');
-var mockdata = require('./mock-data');
+const logging = require('./logging');
+const mockdata = require('./mock-data');
+const config = require('./config');
 const { MockExchangeError, FileStreamError } = require('./errors');
 
 // Logging
@@ -328,7 +329,7 @@ function getAge(startDate, endDate) {
 }
 // }}}1
 
-/** getAge.isUpToDate (ageLimitObj) {{{1
+/** getAge.isUpToDate(ageLimitObj) {{{1
  * This is a public method attached to the getAge() function.
  * Relies on internal data of a getAge() instance.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
@@ -572,6 +573,234 @@ async function sendExchangeRequest(id, pair, symbols){
 }
 // }}}1
 
+/** checkForEqualArrays(a, b) {{{1
+ * Compare two arrays and return 'true' if they are identical.
+ * @params {Array} a First array.
+ * @params {Array} b Second array.
+ * @returns {boolean} Return true if the arrays are identical, false if they
+ * are not.
+ * (https://stackoverflow.com/questions/7837456/how-to-compare-arrays-in-javascript)
+ */
+function checkForEqualArrays(a, b) {
+    // if the other array is a falsy value, return
+    if (!a || !b)
+        return false;
+
+    // compare lengths - can save a lot of time
+    if (a.length != b.length)
+        return false;
+
+    for (var i = 0, l = a.length; i < l; i++) {
+        // Check if we have nested arrays
+        if (a[i] instanceof Array && b[i] instanceof Array) {
+            // recurse into the nested arrays
+            if (!a[i].equals(b[i]))
+                return false;
+        }
+        else if (a[i] != b[i]) {
+            // Warning - two different object instances will never be equal: {x:20} != {x:20}
+            return false;
+        }
+    }
+    return true;
+}
+// }}}1
+
+/** validateCache(cache, entry) {{{1
+ * Expects a state cache and evaluates that for a specific entry.
+ * @params {Array} cache A state-cache array.
+ * @params {string} entry A specific 'entry' within the state-cache.
+ * @returns {boolean} Returns an object bundle of boolean flags.
+ */
+function validateCache(cache, entry) {
+
+    // Initialise
+    const CONTEXT = 'validateCache';
+
+    let result = {
+        current: false,
+        previous: false,
+        upToDate: false
+    };
+
+    try {
+        if (cache.data.current.hasOwnProperty(entry) &&
+            cache.data.current[entry].hasOwnProperty('signature') &&
+            cache.data.current[entry].signature.success) {
+            log.info({
+                context: CONTEXT,
+                verbosity: 1,
+                message: ('STATE_CACHE:' + entry.toUpperCase() + ':CURRENT field checks fine.')
+            });
+            result.current = true;
+        } else {
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: ('STATE_CACHE:' + entry.toUpperCase() + ':CURRENT field is missing or incomplete.')
+            });
+            result.current = false;
+        }
+
+        if (cache.data.previous.hasOwnProperty(entry) &&
+            cache.data.previous[entry].hasOwnProperty('signature') &&
+            cache.data.previous[entry].signature.success) {
+            log.info({
+                context: CONTEXT,
+                verbosity: 1,
+                message: ('STATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field checks fine.')
+            });
+            result.previous = true;
+        } else {
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: ('STATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field is missing or incomplete.')
+            });
+            result.previous = false;
+        }
+
+        // Check the incoming state for the required properties.
+        if (cache.data.current.hasOwnProperty(entry) &&
+            cache.data.current[entry].hasOwnProperty('signature') &&
+            cache.data.current[entry].signature.hasOwnProperty('timestamp') &&
+            result.current) {
+
+            let stateCacheTime = new Date(cache.data.current[entry].signature.timestamp);
+            let currentTime = new Date();
+
+            // DEBUG: Test dates.
+            // let stateCacheTime = new Date('Jan 6, 2019 19:15:28');
+            // let currentTime = new Date('Jan 6, 2019 19:30:27');
+
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: '<CURRENT_TIME> ' + currentTime + ' <STATE_CACHE:' + entry.toUpperCase() + ':TIME> ' + stateCacheTime,
+            });
+
+            // Get timestamp difference and limits.
+            let currentAgeObj = new getAge(currentTime, stateCacheTime);
+            let diff = currentAgeObj.getDiff();
+
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'STATE_CACHE is (' + diff.days + ') days, (' + diff.hours + ') hours, (' + diff.minutes + ') minutes and (' + diff.seconds + ') seconds old.'
+            });
+
+            let limit = config.get('STATE_CACHE_FILE_AGE_LIMIT');
+
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'AGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
+            });
+
+            if(!currentAgeObj.isUpToDate(limit)){
+                log.warning({
+                    context: CONTEXT,
+                    verbosity: 1,
+                    message: ('STATE_CACHE:' + entry.toUpperCase() + ':DATA is out of date.')
+                });
+                result.upToDate = false;
+            } else {
+                log.info({
+                    context: CONTEXT,
+                    verbosity: 1,
+                    message: ('STATE_CACHE:' + entry.toUpperCase() + ':DATA is up to date.')
+                });
+                result.upToDate = true;
+            }
+        } else {
+            throw new Error('Invalid STATE_CACHE_DATA.');
+        }
+    } catch (error) {
+        log.severe({
+            context: CONTEXT,
+            message: ('STATE_CACHE validation has failed.\n' + error)
+        });
+    }
+
+    return result;
+}
+// }}}1
+
+/** generateStateCacheValidators(cache, entries) {{{1
+ * A wrapper function for the validateCache() function. Designed to batch the
+ * state-cache validations process.
+ * @params {Array} cache A state-cache object.
+ * @params {Array} entries A list of state-cache keys.
+ * @returns {Array} Returns an object bundle of validation results.
+ */
+function generateStateCacheValidators(cache, entries) {
+    let stateCacheValidators = {};
+
+    for (const entry of entries) {
+        let validator = validateCache(cache, entry);
+        stateCacheValidators[entry] = validator;
+
+        console.log('validator - [', entry, '] current:', validator.current, 'previous:', validator.previous, 'upToDate:', validator.upToDate);
+
+        if (!validator.current || !validator.previous || !validator.upToDate) {
+            console.log('Validation failed.');
+        }
+    }
+
+    return stateCacheValidators;
+}
+// }}}1
+
+/** consolidateStateCacheValidators(validators) {{{1
+ * Consolidates multiple validators and evaluates the result.
+ * @params {Array} validators Multiple state-cache validation results.
+ * @returns {Array} Returns an object with the flattened validatos.
+ */
+function consolidateStateCacheValidators(validators) {
+    let rows = Object.keys(validators);
+    let columns = [];
+    let consolidatedValidator = {};
+
+    console.log('ROW(s):', rows);
+    rows.forEach((row) => {
+        console.log('\trow:', row);
+        let items = Object.keys(validators[row]);
+
+        console.log('\t\tcurrent columns:', columns);
+        console.log('\t\tcurrent items__:', items);
+
+        // We are done.
+        if (columns.length == 0) {
+            columns = items;
+        }
+
+        // But continue checking for malformed columns/rows cases.
+        if (!checkForEqualArrays(columns, items)) {
+            throw new Error('Malformed validator strcture! Columns NOT matching!');
+        }
+    });
+
+    console.log('ROWS:', rows);
+    console.log('COLUMNS:', columns);
+
+    columns.forEach((column) => {
+        let state = true;
+        console.log('\n----[', column, ']---');
+        rows.forEach((row) => {
+            let item = validators[row][column];
+            // If item is 'false' and the state has been set to before true, set to false.
+            if(!item && state){
+                state = false;
+            }
+            console.log('item:', item);
+        });
+        consolidatedValidator[column] = state;
+    });
+
+    return consolidatedValidator;
+}
+// }}}1
+
 /* EXPORTS */
 module.exports = {
     moduleTest: moduleTest,
@@ -579,7 +808,11 @@ module.exports = {
     readState: readState,
     getAge: getAge,
     generatePayload: generatePayload,
-    sendExchangeRequest: sendExchangeRequest
+    sendExchangeRequest: sendExchangeRequest,
+    checkForEqualArrays: checkForEqualArrays,
+    validateCache: validateCache,
+    generateStateCacheValidators: generateStateCacheValidators,
+    consolidateStateCacheValidators: consolidateStateCacheValidators
 };
 
 // vim: fdm=marker ts=4

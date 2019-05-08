@@ -351,9 +351,7 @@ const getStateCache = async (filepath, { retryLimit = true }) => {
 };
 //}}}1
 
-
-/**
- * public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
+/** public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
  * This is a wrapped async call with a fetch.
  * (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)@param {} id: The exchange id
  * @param {string} pair A fiat pair code.
@@ -576,122 +574,6 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
     }
 };
 //}}}1
-
-// validateCache(id) {{{1
-function validateCache(cache, pair) {
-
-    // Initialise
-    const CONTEXT = 'validateCache';
-
-    let result = {
-        current: false,
-        previous: false,
-        upToDate: false
-    };
-
-    try {
-        if (cache.data.current.hasOwnProperty(pair) &&
-            cache.data.current[pair].hasOwnProperty('signature') &&
-            cache.data.current[pair].signature.success) {
-            log.info({
-                context: CONTEXT,
-                verbosity: 1,
-                message: ('STATE_CACHE:' + pair.toUpperCase() + ':CURRENT field checks fine.')
-            });
-            result.current = true;
-        } else {
-            log.warning({
-                context: CONTEXT,
-                verbosity: 1,
-                message: ('STATE_CACHE:' + pair.toUpperCase() + ':CURRENT field is missing or incomplete.')
-            });
-            result.current = false;
-        }
-
-        if (cache.data.previous.hasOwnProperty(pair) &&
-            cache.data.previous[pair].hasOwnProperty('signature') &&
-            cache.data.previous[pair].signature.success) {
-            log.info({
-                context: CONTEXT,
-                verbosity: 1,
-                message: ('STATE_CACHE:' + pair.toUpperCase() + ':PREVIOUS field checks fine.')
-            });
-            result.previous = true;
-        } else {
-            log.warning({
-                context: CONTEXT,
-                verbosity: 1,
-                message: ('STATE_CACHE:' + pair.toUpperCase() + ':PREVIOUS field is missing or incomplete.')
-            });
-            result.previous = false;
-        }
-
-        // Check the incoming state for the required properties.
-        if (cache.data.current.hasOwnProperty(pair) &&
-            cache.data.current[pair].hasOwnProperty('signature') &&
-            cache.data.current[pair].signature.hasOwnProperty('timestamp') &&
-            result.current) {
-
-            let stateCacheTime = new Date(cache.data.current[pair].signature.timestamp);
-            let currentTime = new Date();
-
-            // DEBUG: Test dates.
-            // let stateCacheTime = new Date('Jan 6, 2019 19:15:28');
-            // let currentTime = new Date('Jan 6, 2019 19:30:27');
-
-            log.debug({
-                context: CONTEXT,
-                verbosity: 7,
-                message: '<CURRENT_TIME> ' + currentTime + ' <STATE_CACHE:' + pair.toUpperCase() + ':TIME> ' + stateCacheTime,
-            });
-
-            // Get timestamp difference and limits.
-            let currentAgeObj = new utils.getAge(currentTime, stateCacheTime);
-            let diff = currentAgeObj.getDiff();
-
-            log.debug({
-                context: CONTEXT,
-                verbosity: 7,
-                message: 'STATE_CACHE is (' + diff.days + ') days, (' + diff.hours + ') hours, (' + diff.minutes + ') minutes and (' + diff.seconds + ') seconds old.'
-            });
-
-            let limit = config.get('STATE_CACHE_FILE_AGE_LIMIT');
-
-            log.debug({
-                context: CONTEXT,
-                verbosity: 7,
-                message: 'AGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
-            });
-
-            if(!currentAgeObj.isUpToDate(limit)){
-                log.warning({
-                    context: CONTEXT,
-                    verbosity: 1,
-                    message: ('STATE_CACHE:' + pair.toUpperCase() + ':DATA is out of date.')
-                });
-                result.upToDate = false;
-            } else {
-                log.info({
-                    context: CONTEXT,
-                    verbosity: 1,
-                    message: ('STATE_CACHE:' + pair.toUpperCase() + ':DATA is up to date.')
-                });
-                result.upToDate = true;
-            }
-        } else {
-            throw new Error('Invalid STATE_CACHE_DATA.');
-        }
-    } catch (error) {
-        log.severe({
-            context: CONTEXT,
-            message: ('STATE_CACHE validation has failed.\n' + error)
-        });
-    }
-
-    // Return
-    return result;
-}
-// }}}1
 
 // Update {{{1
 const update = async () => {
@@ -999,24 +881,20 @@ function initWebSocket() {
                 upToDate: false
             };
         }else{
-            // TODO: Implement some kind of a while loop.
-            // properties are getting overwritten here!!!
-            for (const pair of PAIRS) {
-                isStateCacheValid = validateCache(stateCache, pair.toLowerCase());
+            let accumulateStateCacheValidators = utils.generateStateCacheValidators(stateCache, config.get('PAIRS'));
+            isStateCacheValid = utils.consolidateStateCacheValidators(accumulateStateCacheValidators);
 
-                log.debug({
-                    context: CONTEXT,
-                    verbosity: 5,
-                    message: 'Incoming STATE_CACHE_FLAGS:\n\tCURRENT:{0}, PREVIOUS:{1}, UP_TO_DATE:{2}'
-                        .stringFormatter(
-                            isStateCacheValid.current.toString(),
-                            isStateCacheValid.previous.toString(),
-                            isStateCacheValid.upToDate.toString()
-                        )
-                });
-            }
+            log.debug({
+                context: CONTEXT,
+                verbosity: 5,
+                message: 'Incoming STATE_CACHE_FLAGS:\n\tCURRENT:{0}, PREVIOUS:{1}, UP_TO_DATE:{2}'
+                    .stringFormatter(
+                        isStateCacheValid.current.toString(),
+                        isStateCacheValid.previous.toString(),
+                        isStateCacheValid.upToDate.toString()
+                    )
+            });
         }
-
     } catch(error) {
         // Hard Error, terminate.
         log.error({
@@ -1077,7 +955,6 @@ function initWebSocket() {
                         // CACHE:CURRENT -> DATA:PREVIOUS (as the cache will always
                         // be older than the exchange request).
                         // (OLD WAY) data.updateField('previous', stateCache.data.current, { forceGranularity: false });
-                        console.log(stateCache.data.current[pair]);
                         data.update({
                             section: 'data',
                             field: 'previous',
