@@ -582,36 +582,108 @@ const update = async () => {
 
     let CONTEXT = 'update';
 
-    // Exchange Request Cycle Label
-    log.label({
-        verbosity: 1,
-        colour: blue.inverse,
-        message: 'exchange_request_cycle ({0})'.stringFormatter('START')
-    });
-
-    // Handle current/previous relation-ship here.
-    if(data.getInfo('current', 'timestamp') != null && data.getInfo('current', 'success')){
-        log.debug({
-            context: CONTEXT,
-            verbosity: 7,
-            message: 'CURRENT data is available and will be stored as PREVIOUS data prior to the exchange call.'
+    try {
+        // Exchange Request Cycle Label
+        log.label({
+            verbosity: 1,
+            colour: blue.inverse,
+            message: 'exchange_request_cycle ({0})'.stringFormatter('START')
         });
 
-        // Deep-copy 'current' to 'previous'. As a result both fields would have the same values at this point.
-        data.shuffleData('current', 'previous');
-    }
+        // Handle current/previous relation-ship here.
+        let isTimestampValid, isSuccess = true;
 
-    // Run the exchange request.
-    try {
-        // Make a data request, so that we can reconstruct any missing bits
-        // of the incoming state cache.
-        let exchangeData = await getExchangeData(EXCHANGE, PAIR, SYMBOLS,
-            { retryLimit: 3 },
-            { allowPartial: true }
-        );
+        // DEBUG - TEST: Simulate missing timestamp and unsuccessful states.
+        // data.update({
+        //     section: 'data',
+        //     field: 'current',
+        //     pair: 'usd',
+        //     element: 'signature',
+        //     value: {
+        //         timestamp: null,
+        //         success: false
+        //     }
+        // });
+        // DEBUG - TEST
 
-        // Update the data container. Propagate only the assets with a success flag.
-        data.updateField('current', exchangeData, { forceGranularity: true });
+        // Probe timestamp and success flags for the pair(s).
+        for (const pair of PAIRS) {
+            let getTimestamp = data.query({
+                section: 'data',
+                field: 'current',
+                pair: pair.toLowerCase(),
+                component: 'signature',
+                element: 'timestamp'
+            });
+
+            if(!getTimestamp){
+                isTimestampValid = false;
+            }
+
+            // Prevent reset if already 'false'.
+            if(getTimestamp && isTimestampValid != false){
+                isTimestampValid = true;
+            }
+
+            let getSuccess = data.query({
+                section: 'data',
+                field: 'current',
+                pair: pair.toLowerCase(),
+                component: 'signature',
+                element: 'success'
+            });
+
+            if(!getSuccess){
+                isSuccess = false;
+            }
+
+            // Prevent reset if already 'false'.
+            if(getSuccess && isSuccess != false){
+                isSuccess = true;
+            }
+        }
+
+        // Evaluate timestamp and success results.
+        if(isTimestampValid && isSuccess){
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'CURRENT data is available and will be stored as PREVIOUS data prior to the exchange call.'
+            });
+
+            // Deep-copy 'current' to 'previous'. As a result both fields would have the same values at this point.
+            data.shuffleData('current', 'previous');
+        }else{
+            log.warning({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'No CURRENT data is detected. No updates will be performed on the PREVIOUS data prior to the exchange call.'
+            });
+        }
+
+        // Run the exchange request(s).
+        for (const pair of PAIRS) {
+            try {
+                // Make a data request, so that we can reconstruct any missing bits
+                // of the incoming state cache.
+                let exchangeData = await getExchangeData(EXCHANGE, pair, SYMBOLS,
+                    { retryLimit: 3 },
+                    { allowPartial: true }
+                );
+
+                // Update the data container. Propagate only the assets with a success flag.
+                data.updatePair(
+                    pair.toLowerCase(),
+                    exchangeData, { forceGranularity: true }
+                );
+            }catch(error){
+                // Soft Error
+                log.severe({
+                    context: CONTEXT,
+                    message: ('Exchange data request has failed!\n' + error.stack)
+                });
+            }
+        }
 
         // Cache the updated data container.
         try {
@@ -620,7 +692,7 @@ const update = async () => {
                 message: ('Attempting to generate a fresh data state cache.')
             });
 
-            await exportExchangeData(globals.get('STATE_CACHE_FILE'), data.exportState(),
+            await exportExchangeData(config.get('STATE_CACHE_FILE'), data.exportState(),
                 { retryLimit: config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT') },
             );
 
@@ -632,7 +704,7 @@ const update = async () => {
             // Soft Error
             log.severe({
                 context: CONTEXT,
-                message: ('Data state EXPORT has failed.\n' + error)
+                message: ('Data state EXPORT has failed.\n' + error.stack)
             });
         }
 
@@ -663,7 +735,7 @@ const update = async () => {
 
         log.severe({
             context: CONTEXT,
-            message: ('Failed to propagate exchange data.\n' + error)
+            message: ('Failed to propagate exchange data.\n' + error.stack)
         });
     }
 
@@ -1102,13 +1174,13 @@ function initWebSocket() {
     ; Start Services ;
     ;---------------*/
     try {
-        console.log('*** ALL SERVICES DISABLED! ***');
+        // console.log('*** ALL SERVICES DISABLED! ***');
         // Services
-        // --> requestInterval.runInterval(1, 0, function() {
-        // -->    update();
-        // --> });
+        requestInterval.runInterval(1, 0, function() {
+            update();
+        });
         //initWebSocket();
-        // --> initExpress();
+        initExpress();
     } catch(err) {
         log.severe({
             context: CONTEXT,

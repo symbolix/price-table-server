@@ -20,222 +20,6 @@ let dataObj = {};
 
 /* Private Setters and Getters*/
 
-/** @private [DEPRECATED] set(section, field, pair, component, element, val) {{{1
- * A private getter for the data container.
- */
-function __set(section, field, pair, component, element, val){
-    // Check the SECTION.
-    if(dataObj.hasOwnProperty(section)){
-        if(section==='utility'){
-            try{
-                dataObj[section][element] = val;
-                return true;
-            }catch(err){
-                throw new Error(`Operation on SECTION: ${section} has failed for VAL: ${val}`);
-            }
-        }else{
-            console.log('section:', section, 'is ok.');
-            // Check the FIELD.
-            if(dataObj[section].hasOwnProperty(field)){
-                console.log('\tfield:', field, 'is ok.');
-                // Check the PAIRS.
-                if(dataObj[section][field].hasOwnProperty('pairs')){
-                    console.log('\t\tpairs is ok.');
-                    // Check if we already have a PAIR by that name.
-                    if(dataObj[section][field].pairs.hasOwnProperty(pair)){
-                        console.log('\t\t\tpair:', pair, 'is ok.');
-                        // Check the COMPONENT.
-                        if(dataObj[section][field].pairs[pair].hasOwnProperty(component)){
-                            console.log('\t\t\t\tcomponent:', component, 'is ok.');
-
-                            // Handle ELEMENT (start)
-                            if(element in dataObj[section][field].pairs[pair][component]){
-                                // Element already exists, we will be setting the value.
-                                console.log('\t\t\t\t\telement:', element, 'is ok.');
-                                try{
-                                    dataObj[section][field].pairs[pair][component][element] = val;
-                                    return true;
-                                }catch(err){
-                                    throw new Error(`Operation on ELEMENT: ${element} has failed for VAL: ${val}`);
-                                }
-                            }else{
-                                // We will be adding the whole element as an object here.
-                                console.log('\t\t\t\t\telement:', element, 'will created.');
-
-                                // Sanity Check
-                                const isElementTypeObject = typeof element === 'object';
-
-                                try{
-                                    if(isElementTypeObject){
-                                        console.log('\t\t\t\t\telement:', element, 'will be inserted as an OBJ.');
-                                        dataObj[section][field].pairs[pair][component] = element;
-                                        return true;
-                                    }else{
-                                        console.log('\t\t\t\t\telement:', element, 'will be added as a key=val operation.');
-                                        dataObj[section][field].pairs[pair][component][element] = val;
-                                        return true;
-                                    }
-                                }catch(err){
-                                    throw new Error(`Operation on COMPONENT: ${component} has failed for ELEMENT: ${element}`);
-                                }
-                            }
-                            // Handle ELEMENT (end)
-
-                        }else{
-                            throw new Error(`Invalid COMPONENT: ${component}`);
-                        }
-                    }else{
-                        // We will be adding the whole pair object here.
-                        try{
-                            dataObj[section][field].pairs = pair;
-                            return true;
-                        }catch(err){
-                            throw new Error(`Operation on PAIRS has failed for PAIR: ${pair}`);
-                        }
-                    }
-                }else{
-                    throw new Error('Missing SUB-FIELD: pairs');
-                }
-            }else{
-                throw new Error(`Invalid FIELD: ${field}`);
-            }
-        }
-    }else{
-        throw new Error(`Invalid SECTION: ${section}`);
-    }
-}
-//}}}1
-
-/** @private get(section, field, pair, component, element, key) {{{1
- * A private getter for the data container.
- */
-function get({section=null, field=null, pair=null, component=null, key=null}){
-    if(dataObj.hasOwnProperty(section)){
-        if(section==='utility'){
-            return dataObj[section][key];
-        }else{
-            if(dataObj[section].hasOwnProperty(field)){
-                if(dataObj[section][field].hasOwnProperty(pair)){
-                    if(dataObj[section][field][pair].hasOwnProperty(component)){
-                        if(key in dataObj[section][field][pair][component]){
-                            return dataObj[section][field][pair][component][key];
-                        }else{
-                            throw new Error(`Invalid key: ${component}`);
-                        }
-                    }else{
-                        throw new Error(`Invalid component: ${component}`);
-                    }
-                }else{
-                    throw new Error(`Invalid pair: ${pair}`);
-                }
-            }else{
-                throw new Error(`Invalid field: ${field}`);
-            }
-        }
-    }else{
-        throw new Error(`Invalid section: ${section}`);
-    }
-}
-//}}}1
-
-/** @private [DEPRECATED] set(section, field, pair, component, element, val) {{{1
- * A private getter for the data container.
- * 'section', 'field', 'pair' and 'component' are immutable.
- * 'element' is mutable and receives the 'value'.
- */
-function ___set(section, field, pair, component, element, value){
-    console.log('section:', section, '| field:', field, '| pair:', pair, '| component:', component, '| element:', element, '| value:', value);
-
-    let isDeep = true;
-    let structure;
-
-    if(section=='utility'){
-        isDeep = false;
-    }
-    // Sanity Check
-    if(section !== null){
-        if(!dataObj.hasOwnProperty(section)){
-            throw new Error(`Invalid SECTION: ${section}`);
-        }
-    }
-
-    if(field !== null){
-        if(!dataObj[section].hasOwnProperty(field)){
-            throw new Error(`Invalid FIELD: ${field}`);
-        }
-    }
-
-    if(pair !== null){
-        if(!dataObj[section][field].hasOwnProperty(pair)){
-            throw new Error(`Invalid PAIR: ${pair}`);
-        }
-    }
-
-    if(component !== null){
-        if(!dataObj[section][field][pair].hasOwnProperty(component)){
-            throw new Error(`Invalid COMPONENT: ${component}`);
-        }
-    }
-
-    if(isDeep){
-        structure = dataObj[section][field][pair][component];
-    }else{
-        structure = dataObj[section];
-    }
-
-    console.log(isDeep, structure);
-
-    // Handle ELEMENT (start)
-    if(element in structure){
-        // Element already exists, we will be setting the value.
-        console.log('\t\t\t\t\telement:', element, 'is ok.');
-        try{
-            if(isDeep){
-                dataObj[section][field][pair][component][element] = value;
-            }else{
-                dataObj[section][element] = value;
-            }
-
-            return true;
-        }catch(err){
-            throw new Error(`Operation on ELEMENT: ${element} has failed for VAL: ${value}`);
-        }
-    }else{
-        // We will be adding the whole element as an object here.
-        console.log('\t\t\t\t\telement:', element, 'will be created.');
-
-        // Sanity Check
-        const isElementTypeObject = typeof element === 'object';
-
-        // TODO: Make sure we do not overwrite the existing values.
-
-        try{
-            if(isElementTypeObject){
-                console.log('\t\t\t\t\telement:', element, 'will be inserted as an OBJ.');
-                if(isDeep){
-                    dataObj[section][field][pair][component] = element;
-                }else{
-                    dataObj[section] = element;
-                }
-                return true;
-            }else{
-                console.log('\t\t\t\t\telement:', element, 'will be added as a key=val operation.');
-                if(isDeep){
-                    dataObj[section][field][pair][component][element] = value;
-                }else{
-                    dataObj[section][element] = value;
-                }
-                return true;
-            }
-        }catch(err){
-            throw new Error(`Operation on COMPONENT: ${component} has failed for ELEMENT: ${element}`);
-        }
-    }
-    // Handle ELEMENT (end)
-
-}
-//}}}1
-
 /** @private set(head, next ... [element, val]) {{{1
  * A private low level setter for the data container.
  * @param {Array} The first argument is the head (our entry point) and the last element is a list
@@ -300,6 +84,55 @@ function set(...paths){
 }
 //}}}1
 
+/** @private get(head, next ... element) {{{1
+ * A private low level getter for the data container.
+ * @param {Array} The first argument is the head (our entry point) and the last element is a string.
+ * Arguments in-between are way-points used to traverse the data-object.
+ *
+ * Since this is a lower-level private function, it expects a sanitised
+ * arguments.
+ */
+function get(...paths){
+    const element = paths[4];
+    let result = false;
+
+    // Debug
+    console.log('GET | section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element);
+
+    let nested = dataObj;
+
+    for (let i = 0; i < paths.length; i++) {
+        const path = paths[i];
+
+        // It is important that we explicitly check for the last element. In some cases
+        // the element string might be present up the hierarchy, we don't want
+        // to terminate the traversing abruptly because of that.
+        if (i === paths.length - 1){
+            // Sanity Checks
+            if(!nested.hasOwnProperty(path)){
+                throw new Error(('Unexpected target element: ' + path));
+            }
+
+            // Update the value of the element.
+            result = nested[path];
+        }
+
+        if (path !== null && path !== element){
+            // Go to next level of nesting.
+
+            // Sanity Checks
+            if(!nested.hasOwnProperty(path)){
+                throw new Error(('Unexpected level to traverse: ' + path));
+            }
+
+            // Update reference and keep traversing.
+            nested = nested[path];
+        }
+    }
+
+    return result;
+}
+//}}}1
 /* Public Methods */
 
 /** init() {{{1
@@ -513,6 +346,76 @@ function update(options){
 }
 // }}}1
 
+/** query(section, field, component, element) {{{1
+ * Returns a query result.
+ * A public method that wraps the private get() method.
+ * @param {object} An options object {section, field, pair, component, element}
+ * @returns {value} Returns the corresponding value.
+ */
+function query(options){
+    let CONTEXT = MODULE + '.' + 'query';
+    let section, field, pair, component, element;
+
+    // Sanity Check
+    let isOptionsTypeObject = typeof options === 'object';
+
+    // Check for a valid options object.
+    if(!isOptionsTypeObject){
+        try {
+            throw new Error('Arguments must be passed in as an options object.');
+        }catch(err){
+            log.severe({
+                context: CONTEXT,
+                message: ('Function access error!\n' + err.stack)
+            });
+
+            // Terminate
+            // process.exit(1);
+            throw err;
+        }
+    }else{
+        // Handle arguments.
+        section = options.section || null;
+        field = options.field || null;
+        pair = options.pair || null;
+        component = options.component || null;
+        element = options.element || null;
+    }
+
+    // console.log(section, element, value);
+
+    // Check for critical arguments.
+    try {
+        if(section === null || element === null){
+            throw new Error('Missing SECTION or ELEMENT arguments detected!');
+        }
+    }catch(err){
+        log.severe({
+            context: CONTEXT,
+            message: ('Function access error!\n' + err.stack)
+        });
+
+        // Terminate
+        throw err;
+        //process.exit(1);
+    }
+
+    try {
+        let result = get(section, field, pair, component, element);
+        return result;
+    }catch(err){
+        log.severe({
+            context: CONTEXT,
+            message: ('Internal function error!\n' + err.stack)
+        });
+
+        // Terminate
+        throw err;
+        //process.exit(1);
+    }
+}
+// }}}1
+
 // getData {{{1
 // A method to access the DATA section of our data container.
 // 'field' being one of the states: previous or current.
@@ -570,35 +473,57 @@ function getConfig(key){
 }
 // }}}1
 
-// updateData {{{1
-// A higher level wrapper method that modifies the FIELD section of our data container.
-// 'field' being one of the states: 'previous' or 'current'.
-function updateField(field, fieldObj, { forceGranularity = false }){
-    let CONTEXT = 'updateField';
+/** updatePair(pair, valueObj, {forceGranularity = false}) {{{1
+ * A higher level wrapper method that modifies the PAIR slot of the 'current' section.
+ * When the 'forceGranularity' option is set to 'true', each asset will be
+ * checked prior to any updated.
+ * @param {string} pair The pair slot.
+ * @param {Object} valueObj The incoming pair bundle.
+ * @param {boolean} forceGranularity When set to 'true', each asset will be checked.
+ */
+function updatePair(pair, valueObj, { forceGranularity = false }){
+    let CONTEXT = 'updatePair';
     log.debug({
         context: CONTEXT,
         verbosity: 7,
-        message: 'FIELD: ' + field + ', FORCE_GRANULARITY: ' + forceGranularity
+        message: 'SECTION: data, FIELD: current, [ELEMENT: ' + pair + ', VALUE: ...] (FORCE_GRANULARITY: ' + forceGranularity + ')'
     });
+
+    // We have internal controls that will check the incoming data before
+    // updating the slots, however, it is still a good idea to double check
+    // here as well.
     if(!forceGranularity){
-        dataObj.data[field] = fieldObj;
+        update({
+            section: 'data',
+            field: 'current',
+            element: pair,
+            value: valueObj
+        });
     }else{
-        let storage = dataObj.data[field].assets;
-        let input = fieldObj.assets;
-        Object.keys(storage).forEach((key) => {
+        let storage = dataObj.data.current[pair].assets;
+        let input = valueObj.assets;
+        Object.keys(input).forEach((key) => {
             if(storage.hasOwnProperty(key) && input.hasOwnProperty(key)){
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
                     message: 'Asset ' + key.toUpperCase() + ' exists.'
                 });
-                if(fieldObj.assets[key].success){
+                if(input[key].success){
                     log.info({
                         context: CONTEXT,
                         verbosity: 3,
                         message: ('\tIncoming data for ' + key.toUpperCase() + ' is complete.')
                     });
-                    storage[key] = input[key];
+                    // storage[key] = input[key];
+                    update({
+                        section: 'data',
+                        field: 'current',
+                        pair: pair,
+                        component: 'assets',
+                        element: key,
+                        value: input[key]
+                    });
                 }else{
                     log.warning({
                         context: CONTEXT,
@@ -612,6 +537,15 @@ function updateField(field, fieldObj, { forceGranularity = false }){
                     message: ('ASSET_KEY missmatch for asset: ' + key.toUpperCase())
                 });
             }
+
+            // Finally, update the signature slot.
+            update({
+                section: 'data',
+                field: 'current',
+                pair: pair,
+                element: 'signature',
+                value: valueObj.signature
+            });
         });
     }
 }
@@ -633,7 +567,7 @@ function shuffleData(source, target){
     // { data: { current {} } }
     let sourceObj =  dataObj.data[source];
     // { data: { current {} } } -> { data: { previous {} } }
-    // Deep-copy seems to be a challenge in javascript.
+    // Deep-copy seems to be a challenge in JavaScript.
     // The solution here is the only one that works for now.
     dataObj.data[target] = JSON.parse(JSON.stringify(sourceObj));
 }
@@ -657,6 +591,7 @@ function importState(stateObject){
 module.exports = {
     init: init,
     update: update,
+    query: query,
     getData: getData,
     updateSymbol: updateSymbol,
     getSymbol: getSymbol,
@@ -665,7 +600,7 @@ module.exports = {
     updateConfig: updateConfig,
     getConfig: getConfig,
     shuffleData: shuffleData,
-    updateField: updateField,
+    updatePair: updatePair,
     getField: getField,
     exportState: exportState,
     importState: importState
