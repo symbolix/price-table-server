@@ -136,9 +136,8 @@ function isReservedException(reservedExceptions, exception) {
 }
 // }}}1
 
-// @private formatNumbers(raw)
-// {{{1
-function _formatNumbers(raw) {
+// @private formatNumbers(raw) {{{1
+function formatNumbers(raw) {
     var i = parseFloat(raw);
     if(isNaN(i)) { i = 0.00; }
     var minus = '';
@@ -394,11 +393,12 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
  *      (Note how the % calculations are identical,-/+ determine the increase or decrease)
  *  @param {object} data Expects a data object.
  */
-function generatePayload(dataObj){
+function generatePayload(dataObj, pair){
+    console.log('[PAIR] ->', pair);
     // Payload Template
     let payload = {
-        pair: dataObj.config.pair,
-        coins: {}
+        pair: pair,
+        assets: {}
     };
 
     function getPriceChange(currentPrice, previousPrice){
@@ -426,29 +426,29 @@ function generatePayload(dataObj){
         return trend;
     }
 
-    for(var asset in dataObj.data.current.assets){
+    for(var asset in dataObj.data.current[pair].assets){
         // Build Values
-        let _currentPrice = _formatNumbers(dataObj.data.current.assets[asset].last);
-        let _previousPrice = _formatNumbers(dataObj.data.previous.assets[asset].last);
-        let _changePrice = _formatNumbers(_currentPrice - _previousPrice);
-        let _changePercent = _formatNumbers(getPercentChange(_currentPrice,  _previousPrice));
+        let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last);
+        let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last);
+        let changePrice = formatNumbers(currentPrice - previousPrice);
+        let changePercent = formatNumbers(getPercentChange(currentPrice,  previousPrice));
 
         // Construct Payload Object
-        payload.coins[asset] = {
+        payload.assets[asset] = {
             name:  asset,
             formatted: {
-                current_price: _currentPrice,
-                previous_price: _formatNumbers(dataObj.data.previous.assets[asset].last),
-                change_price: _changePrice,
-                change_percent: _changePercent,
+                current_price: currentPrice,
+                previous_price: formatNumbers(dataObj.data.previous[pair].assets[asset].last),
+                change_price: changePrice,
+                change_percent: changePercent,
             },
             original: {
-                current_price: dataObj.data.current.assets[asset].last,
-                previous_price: dataObj.data.previous.assets[asset].last,
-                change_price: getPriceChange(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last),
-                change_percent: getPercentChange(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last),
+                current_price: dataObj.data.current[pair].assets[asset].last,
+                previous_price: dataObj.data.previous[pair].assets[asset].last,
+                change_price: getPriceChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
+                change_percent: getPercentChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
             },
-            trend: getTrend(dataObj.data.current.assets[asset].last, dataObj.data.previous.assets[asset].last)
+            trend: getTrend(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last)
         };
     }
 

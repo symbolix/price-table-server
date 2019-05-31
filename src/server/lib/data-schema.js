@@ -111,18 +111,18 @@ let dataTemplate = {
 
 /** restApiTemplate {{{2
  * Template for the REST API carrier.
- * static   : Static data is the data that will NOT change.
- * feedback : This is reserved for internal states.
- *      records     : Section reserved for any server side messages, validation and stamping.
- *          stateId     : Every unique send should have an id.
- *          timestamp   : Time signature for when the response was created.
- *      diagnostics : Reserved for server-to-client configuration feedback.
- *                    This should be controlled by a secondary container as it
- *                    will storing information about the state of the server.
- * package  : The payload.
+ * info: Generic protocol information that will NOT change.
+ * feedback: This is reserved for internal states.
+ *      records: Section reserved for any server side messages, validation and stamping.
+ *          requestId: Every unique send should have an id.
+ *          requestTimestamp: Time signature for the response.
+ *      diagnostics: Reserved for server-to-client configuration feedback.
+ *                   This should be controlled by a secondary container as it
+ *                   will be storing information about the state of the server.
+ * payload: The payload.
  */
 var restApiTemplate = {
-    static: {
+    info: {
         version: {
             schema: 'rest-v0.0.1.[3]',
             api: 'rest-V1.01'
@@ -137,7 +137,7 @@ var restApiTemplate = {
             flags: {}
         }
     },
-    package: {}
+    payload: {}
 };
 // }}}2
 

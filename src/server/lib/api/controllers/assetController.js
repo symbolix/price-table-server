@@ -28,17 +28,45 @@ const Payload = (() => {
 
     // Public Methods
     let publicMethods = {
-        getAllAssets: (callback) => {
+        /**
+         * @param {string} pair The target fiat pair.
+         * @param {function} callback A function tobe executed internally.
+         */
+        getAllAssets: (pair, callback) => {
             let error, response, state;
+
+            // Soft-error Handling
             try {
-                state = utils.generatePayload(data.exportState());
+                state = utils.generatePayload(data.exportState(), pair);
                 local.updatePayload(state);
-                response = PayloadModel.findAll();
-                callback(error, response);
+                response = PayloadModel.queryAll();
+                error = false;
             }catch(err){
-                throw 'ERROR';
+                response = false;
+                error = err;
             }
+            callback(error, response);
+        },
+        /**
+         * @param {string} pair The target fiat pair.
+         * @param {function} callback A function tobe executed internally.
+         */
+        getSingleAsset: (pair, symbol, callback) => {
+            let error, response, state;
+
+            // Soft-error Handling
+            try {
+                state = utils.generatePayload(data.exportState(), pair);
+                local.updatePayload(state);
+                response = PayloadModel.querySingle(symbol);
+                error = false;
+            }catch(err){
+                response = false;
+                error = err;
+            }
+            callback(error, response);
         }
+
     };
 
     return publicMethods;
@@ -46,25 +74,44 @@ const Payload = (() => {
 
 let Access = Payload();
 
-function getAssets(req, res) {
-    Access.getAllAssets((err, contact) => {
-        if (err) {
-            res.send(err);
+function getAssets(req, res, next) {
+    /*
+    (DEBUG) console.log('incoming params:', req.params);
+    When the request is made at http://localhost:9001/assets/eur the route
+    '/assets/:pair' should be passing in the params object as: { pair: 'eur' }
+    */
+    Access.getAllAssets(req.params.pair, ((err, result) => {
+        try{
+            if(err){
+                throw err;
+            }
+            console.log('STATUS: OK');
+            res.json(result);
+        }catch(err){
+            console.log('STATUS: FAIL');
+            next(err);
         }
-        res.json(contact);
-    });
+    }));
 }
 
-function getAssetBySymbol(req, res) {
-    console.log('(getAssetBySymbol) __DATA_ACCESS_POINT');
+function getAssetBySymbol(req, res, next) {
     /*
-    Contact.findById(req.params.contactId, (err, contact) => {
-        if (err) {
-            res.send(err);
-        }
-        res.json(contact);
-    });
+    (DEBUG) console.log('incoming params:', req.params);
+    When the request is made at http://localhost:9001/asset/eur/zec the route
+    '/asset/:pair/:symbol' should be passing in the params object as: { pair: 'eur' }
     */
+    Access.getSingleAsset(req.params.pair, req.params.symbol, ((err, result) => {
+        try{
+            if(err){
+                throw err;
+            }
+            console.log('STATUS: OK');
+            res.json(result);
+        }catch(err){
+            console.log('STATUS: FAIL');
+            next(err);
+        }
+    }));
 }
 
 /* EXPORTS */

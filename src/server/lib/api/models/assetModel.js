@@ -15,14 +15,22 @@ function Payload() {
 
     let publicMethods = {
         update: (data) => {
-            this.storage.package = data;
+            this.storage.payload = data;
         },
 
-        findAll: () => {
-            this.storage.timestamp = [new Date(), new Date().getTime()];
+        queryAll: () => {
+            this.storage.feedback.records.requestTimestamp = [new Date(), new Date().getTime()];
+            this.storage.feedback.records.requestId = '6c0b2cfe-914a-4d7d-82e3-66e73d84a9a9';
             return this.storage;
         },
 
+        querySingle: (symbol) => {
+            this.storage.feedback.records.requestTimestamp = [new Date(), new Date().getTime()];
+            this.storage.feedback.records.requestId = '6c0b2cfe-914a-4d7d-82e3-66e73d84a9a9';
+            return this.storage.payload.assets[symbol];
+        },
+
+        // Populate the internal storage using the provided template.
         init: (template) => {
             this.storage = template;
         }

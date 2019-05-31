@@ -782,7 +782,6 @@ const initExpress = (() => {
     );
 
     app.listen(PORT, () =>
-        // console.log(`REST API server is running on port ${PORT}`)
         log.info({
             context: CONTEXT,
             verbosity: 3,
