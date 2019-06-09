@@ -955,7 +955,7 @@ function initWebSocket() {
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
     let stateCacheImportRetryLimit = config.get('STATE_CACHE_IMPORT_RETRY_LIMIT');
     let exchangeDataImportIsSuccess, doExportStateCache;
-    let stateCache, isStateCacheValid;
+    let stateCache, isStateCacheValid, stateCacheValidationTable, tableColour;
 
     // Exporting
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
@@ -977,12 +977,30 @@ function initWebSocket() {
             };
         }else{
             let accumulateStateCacheValidators = utils.generateStateCacheValidators(stateCache, config.get('PAIRS'));
-            isStateCacheValid = utils.consolidateStateCacheValidators(accumulateStateCacheValidators);
+            let consolidatedStateCacheValidators = utils.consolidateStateCacheValidators(accumulateStateCacheValidators);
+
+            isStateCacheValid = consolidatedStateCacheValidators[0];
+            stateCacheValidationTable = consolidatedStateCacheValidators[1];
+
+            // Display validation table.
+            let output = table(stateCacheValidationTable);
+
+            if (!isStateCacheValid.current || !isStateCacheValid.previous || !isStateCacheValid.upToDate) {
+                tableColour = yellow;
+            }else{
+                tableColour = cyan;
+            }
+
+            log.info({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'Cache validation results:\n' + tableColour(output),
+            });
 
             log.debug({
                 context: CONTEXT,
                 verbosity: 5,
-                message: 'Incoming STATE_CACHE_FLAGS:\n\tCURRENT:{0}, PREVIOUS:{1}, UP_TO_DATE:{2}'
+                message: 'Incoming STATE_CACHE_FLAGS: CURRENT ({0}), PREVIOUS ({1}), UP_TO_DATE ({2})'
                     .stringFormatter(
                         isStateCacheValid.current.toString(),
                         isStateCacheValid.previous.toString(),

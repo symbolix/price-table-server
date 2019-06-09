@@ -1,8 +1,7 @@
 // lib/tables.js
 
 // Project Imports
-const { cyan, red, green } = require ('ansicolor');
-const { table } = require('table');
+const { red, green } = require ('ansicolor');
 
 /* Public Functions */
 
@@ -33,7 +32,7 @@ function exchangeRequestAsTable(dataObject){
     // Iterate and distribute.
     Object.values(dataObject).forEach( (value) => {
         contentData = [];
-        let entryCounter = 0;
+        // let entryCounter = 0;
         Object.entries(value).forEach( (entry) => {
             let item = entry[1];
             if(typeof item === 'boolean'){
@@ -42,7 +41,7 @@ function exchangeRequestAsTable(dataObject){
             }
             // Increment item counter.
             contentData.push(item);
-            ++entryCounter;
+            // ++entryCounter;
         });
         // Store the current row.
         data.push(contentData);

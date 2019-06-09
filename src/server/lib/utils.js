@@ -11,6 +11,7 @@
 const ccxt = require ('ccxt');
 const fs = require('fs');
 const { ExchangeNotAvailable, ExchangeError, DDoSProtection, RequestTimeout } = require ('ccxt/js/base/errors');
+const { red, green } = require ('ansicolor');
 
 // Local Imports
 const logging = require('./logging');
@@ -332,6 +333,7 @@ function getAge(startDate, endDate) {
  * This is a public method attached to the getAge() function.
  * Relies on internal data of a getAge() instance.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
+ *
  * @param {object} ageLimitObj structured in the folllowing way: { days: 0, hours: 0, minutes: 5, seconds: 59 }
  * @returns {boolean} TRUE for up-to-date and FALSE for old states.
  */
@@ -356,7 +358,7 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
         log.debug({
             context: CONTEXT,
             verbosity: 7,
-            message: 'Cycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + limitAge[UNITS[unitsIndex]] + '], current value: [' + currentAge[UNITS[unitsIndex]] + '].',
+            message: '\t\tCycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + limitAge[UNITS[unitsIndex]] + '], current value: [' + currentAge[UNITS[unitsIndex]] + '].',
         });
 
 
@@ -365,7 +367,7 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'IS_UP_TO_DATE:false'
+                message: '\t\tIS_UP_TO_DATE:false'
             });
             return false;
         }
@@ -377,7 +379,7 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
     log.debug({
         context: CONTEXT,
         verbosity: 7,
-        message: 'IS_UP_TO_DATE:true'
+        message: '\t\tIS_UP_TO_DATE:true'
     });
     return true;
 };
@@ -635,43 +637,46 @@ function validateCache(cache, entry) {
     };
 
     try {
+        // Check the CURRENT field.
         if (cache.data.current.hasOwnProperty(entry) &&
             cache.data.current[entry].hasOwnProperty('signature') &&
             cache.data.current[entry].signature.success) {
             log.info({
                 context: CONTEXT,
                 verbosity: 1,
-                message: ('STATE_CACHE:' + entry.toUpperCase() + ':CURRENT field checks fine.')
+                message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':CURRENT field checks fine.')
             });
             result.current = true;
         } else {
             log.warning({
                 context: CONTEXT,
                 verbosity: 1,
-                message: ('STATE_CACHE:' + entry.toUpperCase() + ':CURRENT field is missing or incomplete.')
+                message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':CURRENT field is missing or incomplete.')
             });
             result.current = false;
         }
 
+        // Check the PREVIOUS field.
         if (cache.data.previous.hasOwnProperty(entry) &&
             cache.data.previous[entry].hasOwnProperty('signature') &&
             cache.data.previous[entry].signature.success) {
             log.info({
                 context: CONTEXT,
                 verbosity: 1,
-                message: ('STATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field checks fine.')
+                message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field checks fine.')
             });
             result.previous = true;
         } else {
             log.warning({
                 context: CONTEXT,
                 verbosity: 1,
-                message: ('STATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field is missing or incomplete.')
+                message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':PREVIOUS field is missing or incomplete.')
             });
             result.previous = false;
         }
 
         // Check the incoming state for the required properties.
+        // Check the AGEof the stored data.
         if (cache.data.current.hasOwnProperty(entry) &&
             cache.data.current[entry].hasOwnProperty('signature') &&
             cache.data.current[entry].signature.hasOwnProperty('timestamp') &&
@@ -687,7 +692,7 @@ function validateCache(cache, entry) {
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: '<CURRENT_TIME> ' + currentTime + ' <STATE_CACHE:' + entry.toUpperCase() + ':TIME> ' + stateCacheTime,
+                message: '\t<CURRENT_TIME> ' + currentTime + ' <STATE_CACHE:' + entry.toUpperCase() + ':TIME> ' + stateCacheTime,
             });
 
             // Get timestamp difference and limits.
@@ -697,7 +702,7 @@ function validateCache(cache, entry) {
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'STATE_CACHE is (' + diff.days + ') days, (' + diff.hours + ') hours, (' + diff.minutes + ') minutes and (' + diff.seconds + ') seconds old.'
+                message: '\tSTATE_CACHE is (' + diff.days + ') days, (' + diff.hours + ') hours, (' + diff.minutes + ') minutes and (' + diff.seconds + ') seconds old.'
             });
 
             let limit = config.get('STATE_CACHE_FILE_AGE_LIMIT');
@@ -705,21 +710,21 @@ function validateCache(cache, entry) {
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
-                message: 'AGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
+                message: '\tAGE_LIMIT for the STATE_CACHE is (' + limit.days + ') days, (' + limit.hours + ') hours, (' + limit.minutes + ') minutes and (' + limit.seconds + ') seconds.'
             });
 
             if(!currentAgeObj.isUpToDate(limit)){
                 log.warning({
                     context: CONTEXT,
                     verbosity: 1,
-                    message: ('STATE_CACHE:' + entry.toUpperCase() + ':DATA is out of date.')
+                    message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':DATA is out of date.')
                 });
                 result.upToDate = false;
             } else {
                 log.info({
                     context: CONTEXT,
                     verbosity: 1,
-                    message: ('STATE_CACHE:' + entry.toUpperCase() + ':DATA is up to date.')
+                    message: ('\tSTATE_CACHE:' + entry.toUpperCase() + ':DATA is up to date.')
                 });
                 result.upToDate = true;
             }
@@ -729,7 +734,7 @@ function validateCache(cache, entry) {
     } catch (error) {
         log.severe({
             context: CONTEXT,
-            message: ('STATE_CACHE validation has failed.\n' + error)
+            message: ('\tSTATE_CACHE validation has failed.\n' + error)
         });
     }
 
@@ -738,32 +743,67 @@ function validateCache(cache, entry) {
 // }}}1
 
 /** generateStateCacheValidators(cache, entries) {{{1
- * A wrapper function for the validateCache() function. Designed to batch the
- * state-cache validations process.
+ * A wrapper function for the validateCache() function. Designed to batch
+ * process the state-cache validations process.
+ *
  * @params {Array} cache A state-cache object.
  * @params {Array} entries A list of state-cache keys.
  * @returns {Array} Returns an object bundle of validation results.
  */
 function generateStateCacheValidators(cache, entries) {
+    const CONTEXT = 'validators';
     let stateCacheValidators = {};
 
+    // Iterate over entries: 'eur' and 'usd'
     for (const entry of entries) {
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: ''.concat('[', entry, '] Starting validator batching.')
+        });
+
+        // Run the validation batching here.
         let validator = validateCache(cache, entry);
+
+        // Example for the batched validators data structure:
+        // {
+        //  'eur': {
+        //      current: boolean,
+        //      previous: boolean,
+        //      upToDate: boolean
+        //  },
+        //  'use': {
+        //      current: boolean,
+        //      previous: boolean,
+        //      upToDate: boolean
+        //  }
+        // }
         stateCacheValidators[entry] = validator;
 
-        console.log('validator - [', entry, '] current:', validator.current, 'previous:', validator.previous, 'upToDate:', validator.upToDate);
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: ''.concat('[', entry, '] current:', validator.current, ', previous:', validator.previous, ', upToDate:', validator.upToDate)
+        });
 
         if (!validator.current || !validator.previous || !validator.upToDate) {
-            console.log('Validation failed.');
+            log.warning({
+                context: CONTEXT,
+                verbosity: 1,
+                message: 'Validation has failed for one or more component.'
+            });
         }
     }
 
+    // Return the batched validators.
     return stateCacheValidators;
 }
 // }}}1
 
 /** consolidateStateCacheValidators(validators) {{{1
- * Consolidates multiple validators and evaluates the result.
+ * Consolidates multiple validators and evaluates the result. Also generates
+ * a vlidation table.
+ *
  * @params {Array} validators Multiple state-cache validation results.
  * @returns {Array} Returns an object with the flattened validators.
  */
@@ -771,14 +811,13 @@ function consolidateStateCacheValidators(validators) {
     let rows = Object.keys(validators);
     let columns = [];
     let consolidatedValidator = {};
+    let tableData = [];
+    let index = ['pair'];
 
-    console.log('ROW(s):', rows);
+    // ROW(s): [ 'eur', 'usd' ]
+    // COLUMNS: [ 'current', 'previous', 'upToDate' ]
     rows.forEach((row) => {
-        console.log('\trow:', row);
         let items = Object.keys(validators[row]);
-
-        console.log('\t\tcurrent columns:', columns);
-        console.log('\t\tcurrent items__:', items);
 
         // We are done.
         if (columns.length == 0) {
@@ -791,24 +830,93 @@ function consolidateStateCacheValidators(validators) {
         }
     });
 
-    console.log('ROWS:', rows);
-    console.log('COLUMNS:', columns);
+    // Run the consolidator.
+    // Generates the 'consolidatedValidator' component.
+    // +----------+
+    // | current  |
+    // +----------+
+    // | true?    |
+    // | false?   |
+    // +----------+
 
+    // +----------+
+    // | previous |
+    // +----------+
+    // | true?    |
+    // | false?   |
+    // +----------+
+
+    // +----------+
+    // | upToDate |
+    // +----------+
+    // | true?    |
+    // | false?   |
+    // +----------+
+
+    // Iterates over each column header and populates each rows.
     columns.forEach((column) => {
         let state = true;
-        console.log('\n----[', column, ']---');
+        // Run on the current column.
         rows.forEach((row) => {
             let item = validators[row][column];
             // If item is 'false' and the state has been set to before true, set to false.
             if(!item && state){
                 state = false;
             }
-            console.log('item:', item);
         });
         consolidatedValidator[column] = state;
     });
 
-    return consolidatedValidator;
+    // Run the table generation.
+    // Generates the 'transformedTable' component
+    // Initialize the table.
+    // +---------------------------------------+
+    // | pairs | current | previous | upToDate |
+    // |-------|---------|----------|----------|
+    // | eur   |    x    |    x     |    x     |
+    // |-------|---------|----------|----------|
+    // | usd   |    x    |    x     |    x     |
+    // +---------------------------------------+
+    //
+    // ['pairs', 'eur', 'usd']
+    index = [...index, ...rows];
+
+    // First column.
+    tableData.push(index);
+
+    // Run the consolidation.
+    columns.forEach((column) => {
+        let rowContents = [];
+        // Run on the current column.
+        rowContents.push(column);
+        rows.forEach((row) => {
+            let item = validators[row][column];
+            // Accumulate the row.
+            rowContents.push(item);
+        });
+        tableData.push(rowContents);
+    });
+
+    let transformedTable = [];
+
+    // Rebuild Tabe Data
+    // Conver a list of columns into a list of rows.
+    let i;
+    for(i = 0; i < tableData[0].length; i++){
+        let rowData = [];
+        tableData.forEach( (item) => {
+            let member = item[i];
+            if(typeof member === 'boolean'){
+                // For boolean items.
+                member = member ? green(member) : red(member);
+            }
+            rowData.push(member);
+        });
+        transformedTable.push(rowData);
+    }
+
+    // Return the results.
+    return [consolidatedValidator, transformedTable];
 }
 // }}}1
 
