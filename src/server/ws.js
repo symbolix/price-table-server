@@ -771,11 +771,24 @@ const initExpress = (() => {
         message: ('Starting REST API server.')
     });
 
+    function stderrHandler(err, req, res, next){
+        if(!err){
+            return next();
+        }else{
+            log.error({
+                context: 'stderrHandler',
+                message: ('Request has failed:\n' + err.stack)
+            });
+            res.send('ERROR!');
+        }
+    }
+
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
 
     const routes = assetRoutes.getRoutes;
     routes(app);
+    app.use(stderrHandler);
 
     app.get('/', (req, res) =>
         res.send(`REST API server is running on port ${PORT}`)

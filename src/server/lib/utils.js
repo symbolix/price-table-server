@@ -394,7 +394,8 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
  *  @param {object} data Expects a data object.
  */
 function generatePayload(dataObj, pair){
-    console.log('[PAIR] ->', pair);
+    const CONTEXT = 'generatePayload';
+
     // Payload Template
     let payload = {
         pair: pair,
@@ -426,30 +427,40 @@ function generatePayload(dataObj, pair){
         return trend;
     }
 
-    for(var asset in dataObj.data.current[pair].assets){
-        // Build Values
-        let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last);
-        let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last);
-        let changePrice = formatNumbers(currentPrice - previousPrice);
-        let changePercent = formatNumbers(getPercentChange(currentPrice,  previousPrice));
+    log.debug({
+        context: CONTEXT,
+        verbosity: 9,
+        message: ('Payload request for pair: ' + pair.toUpperCase() + ' received.')
+    });
 
-        // Construct Payload Object
-        payload.assets[asset] = {
-            name:  asset,
-            formatted: {
-                current_price: currentPrice,
-                previous_price: formatNumbers(dataObj.data.previous[pair].assets[asset].last),
-                change_price: changePrice,
-                change_percent: changePercent,
-            },
-            original: {
-                current_price: dataObj.data.current[pair].assets[asset].last,
-                previous_price: dataObj.data.previous[pair].assets[asset].last,
-                change_price: getPriceChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
-                change_percent: getPercentChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
-            },
-            trend: getTrend(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last)
-        };
+    if(!dataObj.data.current.hasOwnProperty(pair)){
+        throw new Error('Invalid pair: ' + pair.toUpperCase());
+    }else{
+        for(var asset in dataObj.data.current[pair].assets){
+            // Build Values
+            let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last);
+            let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last);
+            let changePrice = formatNumbers(currentPrice - previousPrice);
+            let changePercent = formatNumbers(getPercentChange(currentPrice,  previousPrice));
+
+            // Construct Payload Object
+            payload.assets[asset] = {
+                name:  asset,
+                formatted: {
+                    current_price: currentPrice,
+                    previous_price: formatNumbers(dataObj.data.previous[pair].assets[asset].last),
+                    change_price: changePrice,
+                    change_percent: changePercent,
+                },
+                original: {
+                    current_price: dataObj.data.current[pair].assets[asset].last,
+                    previous_price: dataObj.data.previous[pair].assets[asset].last,
+                    change_price: getPriceChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
+                    change_percent: getPercentChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
+                },
+                trend: getTrend(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last)
+            };
+        }
     }
 
     // Return
@@ -754,7 +765,7 @@ function generateStateCacheValidators(cache, entries) {
 /** consolidateStateCacheValidators(validators) {{{1
  * Consolidates multiple validators and evaluates the result.
  * @params {Array} validators Multiple state-cache validation results.
- * @returns {Array} Returns an object with the flattened validatos.
+ * @returns {Array} Returns an object with the flattened validators.
  */
 function consolidateStateCacheValidators(validators) {
     let rows = Object.keys(validators);

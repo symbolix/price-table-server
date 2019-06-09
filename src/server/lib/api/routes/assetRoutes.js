@@ -10,27 +10,38 @@
 // Project Imports
 const assetController = require('../controllers/assetController.js');
 
-// Define Controllers
+// Local Imports
+const logging = require('../../logging');
+
+// Logging
+const log = logging.getLogger();
+
+// Define Middleware Controllers
 const getAssets = assetController.getAssets;
 const getAssetBySymbol = assetController.getAssetBySymbol;
 
-// Attach Controllers
+// Setup Routes
 function routes(app) {
+    const CONTEXT = 'rest::routes';
     app.route('/assets/:pair')
         .get((req, res, next) => {
-            // middleware
-            console.log(`Request from: ${req.originalUrl}`);
-            console.log(`Request type: ${req.method}`);
-            console.log('Request params:', req.params);
+            // Attach middleware.
+            log.debug({
+                context: CONTEXT,
+                verbosity: 9,
+                message: ('Request url: ' + req.originalUrl + ' || Request type: ' + req.method + ' || Request params: ' + JSON.stringify(req.params))
+            });
             next();
         }, getAssets);
 
     app.route('/asset/:pair/:symbol')
         .get((req, res, next) => {
-            // middleware
-            console.log(`Request from: ${req.originalUrl}`);
-            console.log(`Request type: ${req.method}`);
-            console.log('Request params:', req.params);
+            // Attach middleware.
+            log.debug({
+                context: CONTEXT,
+                verbosity: 9,
+                message: ('Request url: ' + req.originalUrl + ' || Request type: ' + req.method + ' || Request params: ' + JSON.stringify(req.params))
+            });
             next();
         }, getAssetBySymbol);
 }

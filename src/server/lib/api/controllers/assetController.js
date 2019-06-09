@@ -3,15 +3,25 @@
  *
  * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
  * Licensed under the MIT license.
+ *
+ * These are the middleware components.
  */
 
 'use strict';
 
-// Project Imports
+// REST API Imports
 const AssetModel = require('../models/assetModel');
+
+// Local Imports
+const logging = require('../../logging');
+
+// Generic Imports
 const utils = require('../../utils');
 const data = require('../../data-container');
 const schema = require('../../data-schema');
+
+// Logging
+const log = logging.getLogger();
 
 // Model Init
 let PayloadModel = AssetModel.Payload();
@@ -53,11 +63,23 @@ const Payload = (() => {
          */
         getSingleAsset: (pair, symbol, callback) => {
             let error, response, state;
+            const CONTEXT = 'querySingleAsset';
+
 
             // Soft-error Handling
             try {
                 state = utils.generatePayload(data.exportState(), pair);
                 local.updatePayload(state);
+
+                // We need a more granular approach here since both methods rely on
+                // the same payload method. A secondary stage for isolating the
+                // specific asset is used at the next stage.
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 9,
+                    message: ('Payload sub-request for individual asset: ' + pair.toUpperCase() + '/' + symbol.toUpperCase() + ' received.')
+                });
+
                 response = PayloadModel.querySingle(symbol);
                 error = false;
             }catch(err){
@@ -80,15 +102,23 @@ function getAssets(req, res, next) {
     When the request is made at http://localhost:9001/assets/eur the route
     '/assets/:pair' should be passing in the params object as: { pair: 'eur' }
     */
+    const CONTEXT = 'rest::controller';
     Access.getAllAssets(req.params.pair, ((err, result) => {
         try{
             if(err){
                 throw err;
             }
-            console.log('STATUS: OK');
+            log.info({
+                context: CONTEXT,
+                verbosity: 7,
+                message: '<getAllAssets> Route request for (' + req.originalUrl + ') was successful.'
+            });
             res.json(result);
         }catch(err){
-            console.log('STATUS: FAIL');
+            log.error({
+                context: CONTEXT,
+                message: '<getAllAssets> Route request for (' + req.originalUrl + ') has failed!'
+            });
             next(err);
         }
     }));
@@ -100,15 +130,23 @@ function getAssetBySymbol(req, res, next) {
     When the request is made at http://localhost:9001/asset/eur/zec the route
     '/asset/:pair/:symbol' should be passing in the params object as: { pair: 'eur' }
     */
+    const CONTEXT = 'rest::controller';
     Access.getSingleAsset(req.params.pair, req.params.symbol, ((err, result) => {
         try{
             if(err){
                 throw err;
             }
-            console.log('STATUS: OK');
+            log.info({
+                context: CONTEXT,
+                verbosity: 7,
+                message: '<getSingleAsset> Route request for (' + req.originalUrl + ') was successful.'
+            });
             res.json(result);
         }catch(err){
-            console.log('STATUS: FAIL');
+            log.error({
+                context: CONTEXT,
+                message: '<getSingleAsset> Route request for (' + req.originalUrl + ') has failed!'
+            });
             next(err);
         }
     }));
