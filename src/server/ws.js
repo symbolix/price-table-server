@@ -759,6 +759,7 @@ var activeWebSocketEmission = function(input) {
  ; Initialize Server Components ;
  ------------------------------*/
 // initExpress() {{{1
+// To test in terminal: curl -v http://localhost:9001/assets/eur | jq
 const initExpress = (() => {
     const CONTEXT = 'initExpress';
 
@@ -772,6 +773,7 @@ const initExpress = (() => {
     });
 
     // Custom exception handler.
+    // https://stackoverflow.com/questions/47163872/customized-error-handling-in-express-js
     function stderrHandler(err, req, res, next){
         if(!err){
             return next();

@@ -34,7 +34,7 @@ function Payload() {
 
 
             if(!this.storage.payload.assets.hasOwnProperty(symbol)){
-                throw new Error('Invalid asset symbol: ' + symbol + ' received.');
+                throw new Error('Invalid request for asset symbol [' + symbol.toUpperCase() + '] received!');
             }else{
                 return this.storage.payload.assets[symbol];
             }

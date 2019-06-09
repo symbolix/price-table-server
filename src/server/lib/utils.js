@@ -434,7 +434,7 @@ function generatePayload(dataObj, pair){
     });
 
     if(!dataObj.data.current.hasOwnProperty(pair)){
-        throw new Error('Invalid pair: ' + pair.toUpperCase());
+        throw new Error('Invalid request for pair [' + pair.toUpperCase() + '] received!');
     }else{
         for(var asset in dataObj.data.current[pair].assets){
             // Build Values
