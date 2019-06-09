@@ -771,23 +771,32 @@ const initExpress = (() => {
         message: ('Starting REST API server.')
     });
 
+    // Custom exception handler.
     function stderrHandler(err, req, res, next){
         if(!err){
             return next();
         }else{
             log.error({
                 context: 'stderrHandler',
-                message: ('Request has failed:\n' + err.stack)
+                message: ('Request has failed with the following exception:\n' + err.stack)
             });
-            res.send('ERROR!');
+            res.status(500).send({
+                status:500,
+                details: 'REQUEST_ERROR',
+                type:'internal',
+                message: err.message
+            });
         }
     }
 
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
 
+    // Init app.
     const routes = assetRoutes.getRoutes;
     routes(app);
+
+    // Has to be after the app initialization stage.
     app.use(stderrHandler);
 
     app.get('/', (req, res) =>
