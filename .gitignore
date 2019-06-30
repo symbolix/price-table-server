@@ -1,9 +1,11 @@
 # ;----------------------------;
 # ;  Project Specific Ignores  ;
 # ;----------------------------;
-# VIM temp files
+# VIM temp files.
 *~
 *swp
+# Server data files.
+data/statecache.json
 
 # Node modules folder
 node_modules/

@@ -19,6 +19,12 @@ const mockdata = require('./mock-data');
 const config = require('./config');
 const { MockExchangeError, FileStreamError } = require('./errors');
 
+// The configuration for fractions formatting.
+// For example:
+//      XRP should be displayed with 4 fractional digits, 0.1234
+//      However, 2 fractional digits are sufficient for ETH, 123.12
+const FORMAT = config.get('FORMAT');
+
 // Logging
 const log = logging.getLogger();
 
@@ -137,8 +143,61 @@ function isReservedException(reservedExceptions, exception) {
 }
 // }}}1
 
-// @private formatNumbers(raw) {{{1
-function formatNumbers(raw) {
+/** formatNumbers(raw, fractionalDecimals) {{{1
+ * A function to format the fractional digits based on the decimals count
+ * passed through the argument.
+ * @param {float} raw A float number.
+ * @param {int} fractionalDecimals Number of decimals after the dot.
+ * @returns {string} A formatted string.
+ */
+function formatNumbers(raw, fractionalDecimals) {
+    // This is the fractional modifier. For example: 10s, 100s etc.
+    // This modifier is used when rounding the incoming fraction.
+    let fractionalModifier = Math.pow(10, fractionalDecimals);
+
+    let i = raw;
+
+    // In case of no fractional section.
+    // For example: 7.0 or 1.0 etc.
+    if(i.toString().split('.').length<2){
+        return i.toFixed(fractionalDecimals);
+    }else{
+        if(i.toString().split('.')[1].length<=fractionalDecimals){
+            return i.toFixed(fractionalDecimals);
+        }
+    }
+
+    // Guard against NaNs
+    if(isNaN(i)){
+        i = 0;
+        return i.toFixed(fractionalDecimals);
+    }
+
+    // Handle the minus sign.
+    let minus = '';
+    if(i < 0) { minus = '-'; }
+
+    // Process
+    i = Math.abs(i);
+    let fractionalLevels = (i.toString().split('.')[1]).length;
+    let fractionalDepth = Math.pow(10, fractionalLevels);
+    let fractionalLimit = 0.5 / Math.pow(10, fractionalDecimals);
+    let leftover = parseFloat((i.toString().split('.')[1].slice(fractionalDecimals)/fractionalDepth));
+    i = (leftover > fractionalLimit ? (Math.ceil(i*fractionalModifier)/fractionalModifier) : (Math.floor(i*fractionalModifier)/fractionalModifier));
+
+    // Handle Post-Process short fractional digits.
+    if(i.toString().split('.')[1].length<fractionalDecimals){
+        i = i.toFixed(fractionalDecimals);
+    }
+
+    let s = (minus + i.toString());
+    return s;
+}
+// }}}1
+
+// (DEPRECATED)
+// @private (DEPRECATED) __formatNumbers(raw) {{{1
+function __deprecated_formatNumbers(raw) {
     var i = parseFloat(raw);
     if(isNaN(i)) { i = 0.00; }
     var minus = '';
@@ -440,17 +499,17 @@ function generatePayload(dataObj, pair){
     }else{
         for(var asset in dataObj.data.current[pair].assets){
             // Build Values
-            let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last);
-            let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last);
-            let changePrice = formatNumbers(currentPrice - previousPrice);
-            let changePercent = formatNumbers(getPercentChange(currentPrice,  previousPrice));
+            let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last, FORMAT[asset]);
+            let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last, FORMAT[asset]);
+            let changePrice = formatNumbers((parseFloat(currentPrice) - parseFloat(previousPrice)), FORMAT[asset]);
+            let changePercent = formatNumbers((getPercentChange(parseFloat(currentPrice),  parseFloat(previousPrice))), 2);
 
             // Construct Payload Object
             payload.assets[asset] = {
                 name:  asset,
                 formatted: {
                     current_price: currentPrice,
-                    previous_price: formatNumbers(dataObj.data.previous[pair].assets[asset].last),
+                    previous_price: previousPrice,
                     change_price: changePrice,
                     change_percent: changePercent,
                 },
@@ -522,10 +581,10 @@ async function sendExchangeRequest(id, pair, symbols){
             // (TEST): end
 
             // Actual Request
-            // const ticker = await exchange.fetchTicker(symbol);
+            const ticker = await exchange.fetchTicker(symbol);
 
             // Mock Request
-            const ticker = await mockdata.fetchTicker(symbol);
+            // const ticker = await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,

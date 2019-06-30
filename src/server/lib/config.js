@@ -11,6 +11,18 @@
 var resources = {
     PAIRS: ['eur', 'usd'],
     ASSETS: ['btc', 'eth', 'zec', 'ltc', 'xmr', 'dash', 'eos', 'etc', 'xlm', 'xrp'],
+    FORMAT: {
+        btc: 2,
+        eth: 2,
+        zec: 2,
+        ltc: 2,
+        xmr: 2,
+        dash: 2,
+        eos: 2,
+        etc: 2,
+        xlm: 4,
+        xrp: 4
+    },
     EXCHANGE: 'kraken',
     DEBUG_DATA_FEED_STATUS: false,
     SILENT: false,
