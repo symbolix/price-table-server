@@ -1,13 +1,34 @@
-// lib/globals.js
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: globals
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+
+'use strict';
+
+// Local Imports
+var logging = require('./logging');
+
+// Logging
+const log = logging.getLogger();
+
+var MODULE = 'globals';
 
 var resources = {
     APP_NAME: 'Price Table Server',
-    APP_VERSION: 'v0.0.1.[12]',
+    APP_VERSION: 'v0.0.1.[13]',
     DATA_FEED_IS_ACTIVE: false
 };
 
 function moduleTest(){
-    console.log('__GLOBALS__ module accessed.');
+    let CONTEXT = MODULE + '.' + 'moduleTest';
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        message: ('__GLOBALS__ module accessed.'),
+    });
 }
 
 function getResource(resource){
@@ -23,3 +44,5 @@ module.exports = {
     set: setResource,
     get: getResource
 };
+
+// vim: fdm=marker ts=4

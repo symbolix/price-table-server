@@ -1,8 +1,21 @@
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: mockdata
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+
 'use strict';
-// lib/mock-data.js
 
 // Local Imports
 const { MockExchangeError } = require('./errors');
+var logging = require('./logging');
+
+var MODULE = 'mockdata';
+
+// Logging
+const log = logging.getLogger();
 
 // Mock Ticker Object {{{1
 const mockTickers = {
@@ -132,13 +145,13 @@ const mockTickers = {
 
 /* Private Functions*/
 
-// @private queryMockTickers(symbol, callback) {{{1
-//
-//  ARGS:
-//      symbol: any of the ticker symbols
-//  NOTES:
-//      A low level API response emulator.
-//
+/** @private queryMockTickers(symbol, callback) {{{1
+ *
+ * A low level API response emulator. The _symbol_ parameter is any of the ticker symbols.
+ *
+ * @param {String} symbol
+ */
+
 function queryMockTickers(symbol){
     // Promisify the request.
     return new Promise((resolve, reject) => {
@@ -166,40 +179,43 @@ function queryMockTickers(symbol){
 }
 //}}}1
 
-// @private randomLastPrice(min, max) {{{1
-//
-//  ARGS:
-//      min: Minimum value.
-//      max: Maximum value.
-//  INFO:
-//      A function to generate a random last price, within the provided range.
-//
+/** @private randomLastPrice(min, max) {{{1
+ *
+ * A function to generate a random last price, within the provided range.
+ * Expects a _min_ and _max_ parameter to define limits.
+ *
+ * @param {} min
+ * @param {} max
+ */
+
 function randomLastPrice(min, max){
-    // console.log('min:', min, 'max', max);
     return Math.random() * (max - min) + min;
 }
 //}}}1
 
 /* Public Functions */
 
-// @public moduleTest() {{{1
-//  ARGS:
-//      No arguments.
-//  INFO:
-//      A simple module test function.
-//
+/** @public moduleTest() {{{1
+ * A generic test function.
+ */
 function moduleTest(){
-    console.log('__MOCK-DATA__ module accessed.');
+    let CONTEXT = MODULE + '.' + 'moduleTest';
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        message: ('__MOCK-DATA__ module accessed.'),
+    });
 }
 //}}}1
 
-// @public async fetchTicker(symbol) {{{1
-//
-//  ARGS:
-//      symbol: any of the ticker symbols
-//  INFO:
-//      A wrapper for the mock API request.
-//
+/** @public async fetchTicker(symbol) {{{1
+ *
+ * A wrapper for the mock API request. The _symbol_ argument can be any of the
+ * ticker symbols.
+ *
+ * @param {String} symbol
+ */
+
 async function fetchTicker(symbol) {
     // We need to switch the separator here.
     try {

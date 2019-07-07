@@ -1,5 +1,12 @@
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: errors
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+
 'use strict';
-// lib/mock-data.js
 
 // A custom error allocated for out mock-data error.
 class MockExchangeError extends Error {
@@ -27,3 +34,5 @@ module.exports = {
     MockExchangeError: MockExchangeError,
     FileStreamError: FileStreamError
 };
+
+// vim: fdm=marker ts=4

@@ -1,14 +1,26 @@
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: timers
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+
 'use strict';
-// lib/timers.js
 
 // Local Imports
 var logging = require('./logging');
 
+var MODULE = 'timers';
+
 // Logging
 const log = logging.getLogger();
 
-// getTime() {{{1
-// Construct a time string for debug purposes.
+/** @private getTime() {{{1
+ *
+ * Constructs a time string for debuging purposes.
+ */
+
 const getTime = () => {
     var now = new Date();
     var h = now.getHours().toString().padStart(2, '0');
@@ -19,11 +31,16 @@ const getTime = () => {
 };
 // }}}1
 
-/** Interval Object (name) {{{1
- * Creates an Interval object with the required mothods.
- * @parm {string} name : The name of the interval.
+/** @public Interval (name) {{{1
+ *
+ * Creates an Interval object with the required methods. The name of the
+ * interval is initialized through the _name_ paramter.
+ *
+ * @param {String} name
  */
 function Interval(name = 'default') {
+    const CONTEXT = MODULE + '.' + 'interval';
+
     // Private Data
 
     // Counter
@@ -39,36 +56,52 @@ function Interval(name = 'default') {
     };
 
     log.info({
-        context: 'constructor',
+        context: CONTEXT,
         verbosity: 3,
         message: 'Interval initialised as [' + name + ']',
     });
 
-    // Public access point.
+    // Public Access
+
     let self = {};
 
     // Private Methods
-    /** updateCounter(value) {{{2
+
+    /** @private updateCounter(value) {{{2
+     *
      * Increments the counter state.
+     *
+     * @param {Integer} value
      */
+
     const updateCounter = function(value) {
         _counter += value;
     };
     // }}}2
 
-    /** getState(item) {{{2
+    /** @private getState(item) {{{2
+     *
      * Returns the state of the requested item.
+     *
+     * @param {String} item
      */
+
     const getState = function(item) {
         return state[item];
     };
     // }}}2
 
-    /** getNextTick(mySkip, myInterval, currentSeconds) {{{2
+    /** @private getNextTick(mySkip, myInterval, currentSeconds) {{{2
+     *
      * Calculates the time to the next tick in milliseconds.
+     *
+     * @param {Number} mySkip
+     * @param {Number} myInterval
+     * @param {Number} currentSeconds
      */
+
     const getNextTick = function(mySkip, myInterval, currentSeconds) {
-        let CONTEXT = 'getNextTick';
+        let CONTEXT = MODULE + '.' + 'getNextTick';
 
         // Local Data
         let myGap, pivotIsLocal, mode, nextUpdateMilliseconds, identifier;
@@ -193,11 +226,17 @@ function Interval(name = 'default') {
     };
     // }}}2
 
-    /** startInterval(timeToNextTick, skip, interval, callback) {{{2
-     * This is a recursive function and is the main timer reposible for the cycle.
+    /** @private startInterval(timeToNextTick, skip, interval, callback) {{{2
+     *
+     * This is a recursive function and is the main timer responsible for the cycle.
+     *
+     * @param {Number} timeToNextTick
+     * @param {Number} skip
+     * @param {Number} interval
+     * @param {Function} callback
      */
     const startInterval = function(timeToNextTick, skip, interval, callback) {
-        let CONTEXT = 'startInterval';
+        let CONTEXT = MODULE + '.' + 'startInterval';
 
         // Plant the next run.
         setTimeout(function() {
@@ -246,19 +285,30 @@ function Interval(name = 'default') {
     // }}}2
 
     // Public Methods
-    /** setState(item, value) {{{2
+
+    /** @public setState(item, value) {{{2
+     *
      * A public method dedicated to the control of the states.
+     *
+     * @param {String} item
+     * @param {String} value
      */
     self.setState = function(item, value) {
         state[item] = value;
     };
     // }}}2
 
-    /** runInterval(skip, interval, callback) {{{2
+    /** @public runInterval(skip, interval, callback) {{{2
+     *
      * This is the main starting point for the interval.
+     *
+     * @param {Number} skip
+     * @param {Number} interval
+     * @param {Function} callback
      */
+
     self.runInterval = function(skip, interval, callback) {
-        let CONTEXT = 'runInterval';
+        let CONTEXT = MODULE + '.' + 'runInterval';
         var date = new Date();
         let myInterval = interval;
         let mySkip = skip;

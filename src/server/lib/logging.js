@@ -1,12 +1,21 @@
-// lib/logging.js
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: logging
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+'use strict';
 
 // Project Imports
 const log = require ('ololog');
 const bullet = require ('string.bullet');
-const { darkGray,  magenta, black, bgRed, lightYellow, dim, red, cyan } = require ('ansicolor');
+const { darkGray,  magenta, bgRed, lightYellow, dim, red, cyan } = require ('ansicolor');
 
 // Local Imports
 const config = require('./config');
+
+var MODULE = 'logging';
 
 // Local Variables
 const operators = {
@@ -19,54 +28,51 @@ const operators = {
  ; Overrides ;
  ;-----------*/
 
-// @prototypeOverride stringFormatter
-//      Method override to the String object.
-//      (https://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format)
+/** @prototypeOverride stringFormatter {{{1
+ * Method override to the String object.
+ * (https://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format)
+ */
+
 String.prototype.stringFormatter = String.prototype.stringFormatter ||
-// {{{1
-function () {
-    'use strict';
-    var str = this.toString();
-    if (arguments.length) {
-        var t = typeof arguments[0];
-        var key;
-        var args = ('string' === t || 'number' === t) ?
-            Array.prototype.slice.call(arguments)
-            : arguments[0];
+    function () {
+        'use strict';
+        var str = this.toString();
+        if (arguments.length) {
+            var t = typeof arguments[0];
+            var key;
+            var args = ('string' === t || 'number' === t) ?
+                Array.prototype.slice.call(arguments)
+                : arguments[0];
 
-        // console.log('===>', args);
-        // console.log('--->', typeof args[0]);
-        // console.log('--->', typeof args[1]);
-
-        for (key in args) {
-            let currentArg;
-            let keyType = typeof args[key];
-            // console.log('key:', key, 'keyType:', keyType);
-            if(keyType === 'object'){
-                // console.log('YES');
-                currentArg = JSON.stringify(args[key]);
-            }else{
-                currentArg = args[key];
+            for (key in args) {
+                let currentArg;
+                let keyType = typeof args[key];
+                if(keyType === 'object'){
+                    currentArg = JSON.stringify(args[key]);
+                }else{
+                    currentArg = args[key];
+                }
+                str = str.replace(new RegExp('\\{' + key + '\\}', 'gi'), currentArg);
             }
-            str = str.replace(new RegExp('\\{' + key + '\\}', 'gi'), currentArg);
         }
-    }
 
-    return str;
-};
+        return str;
+    };
 // }}}1
 
 /*------------------;
  ; Private Methods. ;
  ;------------------*/
 
-// @getComparisionOperator(a, b)
-// (args)
-//      a: first value
-//      b: second value
-// (info)
-//      Expects two values and returns a literal comparison string.
-//{{{1
+/** @private getComparisionOperator(a, b) {{{1
+ *
+ * Expects two values and returns a literal comparison string. The _a_
+ * parameter is the first value and the _b_ parameter is the second value.
+ *
+ * @param {Number} a
+ * @param {Number} b
+ */
+
 const getComparisionOperator = (a, b) => {
     for (const operator in operators) {
         if (operators[operator](a, b)) {
@@ -77,21 +83,12 @@ const getComparisionOperator = (a, b) => {
 };
 //}}}1
 
-/*-----------------;
- ; Public Methods. ;
- ;-----------------*/
+/** @private labels() {{{1
+ *
+ * Logger configuration specific to the label style messages.
+ *
+ */
 
-// Module Test Functions
-//      A generic test function.
-//{{{1
-function moduleTest(){
-    console.log('__LOGGING__ module accessed.');
-}
-//}}}1
-
-// Labels Config
-//      Configuration stage for the labels.
-//{{{1
 const labels = log.configure (
     {
         time: {
@@ -106,9 +103,10 @@ const labels = log.configure (
 );
 // }}}1
 
-// Logger Config
-//      Configuration stage for the logger.
-//{{{1
+/** @private logging() {{{1
+ * This is the logger configuration object.
+ */
+
 const logging = log.configure (
     {
         time: {
@@ -125,20 +123,22 @@ const logging = log.configure (
             const contextStr = context ? ('[' + (context + '') + ']') : '';
             const verbosityStr = verbosity ? ('{' + (verbosity + '') + '}') : '';
             const levelStr = level && (levelColor[level] || (s => s)) (level.toUpperCase ());
-            return bullet(dim(contextStr.padEnd(16)) + '\t' + dim(verbosityStr.padStart(0)) + '\t' + levelStr.padStart(0) + '\t', lines);
+            return bullet(dim(contextStr.padEnd(34)) + '' + dim(verbosityStr.padStart(0)) + '\t' + levelStr.padStart(0) + '\t', lines);
         },
         locate: false
     }
 );
 // }}}1
 
-// Main Logger Object
-//      Container for the logging facilities.
-//{{{1
+/** @private logger() {{{1
+ *
+ * Main logger object. Container for the logging facilities.
+ */
+
 function logger(){
 
     // DEBUG Messages {{{2
-    this.debug = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, message=null } = {}){
+    this.debug = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, colour=darkGray, message=null } = {}){
         // The verbosity requirement sent by the function.
         let requiredVerbosityDepth = verbosity === null ? config.get('REQUIRED_VERBOSITY_DEPTH') : verbosity;
 
@@ -154,13 +154,13 @@ function logger(){
             // Combined verbosity relation string.
             let verbosityProduct = requiredVerbosityDepth + verbositySign + currentVerbosityDepth;
 
-            logging.configure({ tag: { level: 'debug', context: context, verbosity: verbosityProduct } })(darkGray(message));
+            logging.configure({ tag: { level: 'debug', context: context, verbosity: verbosityProduct } })(colour(message));
         }
     };
     //}}}2
 
     // INFO Messages {{{2
-    this.info = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, message=null } = {}){
+    this.info = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, colour=lightYellow, message=null } = {}){
 
         // The verbosity requirement sent by the function.
         let requiredVerbosityDepth = verbosity === null ? config.get('REQUIRED_VERBOSITY_DEPTH') : verbosity;
@@ -177,13 +177,13 @@ function logger(){
             // Combined verbosity relation string.
             let verbosityProduct = requiredVerbosityDepth + verbositySign + currentVerbosityDepth;
 
-            logging.configure({ tag: { level: 'info', context: context, verbosity: verbosityProduct } })(lightYellow(message));
+            logging.configure({ tag: { level: 'info', context: context, verbosity: verbosityProduct } })(colour(message));
         }
     };
     //}}}2
 
     // WARNING Messages {{{2
-    this.warning = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, message=null } = {}){
+    this.warning = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, colour=magenta ,message=null } = {}){
 
         // The verbosity requirement sent by the function.
         let requiredVerbosityDepth = verbosity === null ? config.get('REQUIRED_VERBOSITY_DEPTH') : verbosity;
@@ -199,24 +199,28 @@ function logger(){
 
             // Combined verbosity relation string.
             let verbosityProduct = requiredVerbosityDepth + verbositySign + currentVerbosityDepth;
-            logging.configure({ tag: { level: 'warning', context: context, verbosity: verbosityProduct } })(magenta(message));
+            logging.configure({ tag: { level: 'warning', context: context, verbosity: verbosityProduct } })(colour(message));
         }
     };
     // }}}2
 
     // ERROR Messages {{{2
-    this.error = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, message=null } = {}){
+    this.error = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, colour=red, message=null } = {}){
         /* This type of message should NOT be tested against the global
          * verbosity depth. */
-        logging.configure({ tag: { level: 'error', context: context } })(red(message));
+        // Colour override is not allowed here!
+        colour = red;
+        logging.configure({ tag: { level: 'error', context: context, verbosity: '___' } })(colour(message));
     };
     //}}}2
 
     // SEVERE Messages {{{2
-    this.severe = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, message=null } = {}){
+    this.severe = !config.get('DEBUG').console ? function(){} : function({ context=null, verbosity=null, colour=null, message=null } = {}){
         /* This type of message should NOT be tested against the global
          * verbosity depth. */
-        logging.configure({ tag: { level: 'severe', context: context } })(bgRed(message));
+        // Colour override is not allowed here!
+        colour = bgRed;
+        logging.configure({ tag: { level: 'severe', context: context, verbosity: '___' } })(colour(message));
     };
     //}}}2
 
@@ -237,16 +241,36 @@ function logger(){
 
             // No need for a verbosity product here.
             // But we need some formatting work.
-            labels.configure()(''.padStart(56) + colour(''.padEnd(3, '-') + ' <' + message + '> ' + ''.padStart(3, '-')));
+            labels.configure()(''.padStart(72) + colour(''.padEnd(3, '-') + ' <' + message + '> ' + ''.padStart(3, '-')));
         }
     };
     //}}}2
 }
 //}}}1
 
-// Get Logger
-//      Instancer function for the logger.
-//{{{1
+/*-----------------;
+ ; Public Methods. ;
+ ;-----------------*/
+
+/** @public moduleTest() {{{1
+ * A generic test function.
+ */
+
+function moduleTest(){
+    let CONTEXT = MODULE + '.' + 'moduleTest';
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        message: ('__LOGGING__ module accessed.'),
+    });
+}
+//}}}1
+
+/** @public getLogger() {{{1
+ * Get Logger
+ * Constructor function for the logger.
+ */
+
 function getLogger(){
     return new logger();
 }

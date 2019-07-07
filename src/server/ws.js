@@ -10,11 +10,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 // Local Imports
+const logging = require('./lib/logging');
 const utils = require('./lib/utils');
 const data = require('./lib/data-container');
 const globals = require('./lib/globals');
 const config = require('./lib/config');
-const logging = require('./lib/logging');
 const tables = require('./lib/tables');
 const schema = require('./lib/data-schema.js');
 const timers = require('./lib/timers.js');

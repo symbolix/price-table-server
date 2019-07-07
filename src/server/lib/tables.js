@@ -1,22 +1,48 @@
-// lib/tables.js
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: tables
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
+
+'use strict';
 
 // Project Imports
 const { red, green } = require ('ansicolor');
 
+var MODULE = 'tables';
+
+// Local Imports
+var logging = require('./logging');
+
+// Logging
+const log = logging.getLogger();
+
 /* Public Functions */
 
-// @public moduleTest()
-//      No arguments.
-//      A simple module test function.
-//{{{1
+/** @public moduleTest() {{{1
+ * A generic test function.
+ */
+
 function moduleTest(){
-    console.log('__TABLES__ module accessed.');
+    let CONTEXT = MODULE + '.' + 'moduleTest';
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        message: ('__TABLES__ module accessed.'),
+    });
 }
 //}}}1
 
-// @public exchangeRequestAsTable(dataObject)
-//      dataObject: Formatted exchange request data object.
-//{{{1
+/** @public exchangeRequestAsTable(dataObject) {{{1
+ *
+ * Expects a formatted exchange request data object.
+ *
+ * @param {Object} dataObject
+ *
+ */
+
 function exchangeRequestAsTable(dataObject){
     // The header is an array with the top row labels.
     // ['symbol', 'timestamp', 'last', 'success'];
@@ -32,16 +58,13 @@ function exchangeRequestAsTable(dataObject){
     // Iterate and distribute.
     Object.values(dataObject).forEach( (value) => {
         contentData = [];
-        // let entryCounter = 0;
         Object.entries(value).forEach( (entry) => {
             let item = entry[1];
             if(typeof item === 'boolean'){
                 // For boolean items.
                 item = item ? green(item) : red(item);
             }
-            // Increment item counter.
             contentData.push(item);
-            // ++entryCounter;
         });
         // Store the current row.
         data.push(contentData);

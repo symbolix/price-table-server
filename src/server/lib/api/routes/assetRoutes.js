@@ -1,4 +1,5 @@
-/*
+/* Price Table Server | tradekit.io
+ *
  * R£ST Asset Routes
  *
  * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
@@ -13,6 +14,8 @@ const assetController = require('../controllers/assetController.js');
 // Local Imports
 const logging = require('../../logging');
 
+var MODULE = 'rest.route';
+
 // Logging
 const log = logging.getLogger();
 
@@ -20,9 +23,9 @@ const log = logging.getLogger();
 const getAssets = assetController.getAssets;
 const getAssetBySymbol = assetController.getAssetBySymbol;
 
-// Setup Routes
+// Setup Express.js Routes
 function routes(app) {
-    const CONTEXT = 'rest::routes';
+    const CONTEXT = MODULE + '.' + 'routes';
     app.route('/assets/:pair')
         .get((req, res, next) => {
             // Attach middleware.

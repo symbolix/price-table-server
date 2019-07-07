@@ -1,8 +1,8 @@
-/*
- * Data Schemas
- * @module schema
+/* Price Table Server | tradekit.io
  *
- * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
+ * @mudule: dataschema
+ *
+ * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
  */
 
@@ -12,74 +12,10 @@
 // None
 
 /** Schema Templates {{{1
- * Template for the protocol and data strage containers.
+ * Template for the protocol and data storage containers.
  */
 
 /* Persistent Data Templates */
-
-/** Package Template {{{2
- * Template for the response data container.
- * pairs    : Market pairs.
- * utility  : A field for extra data.
- *      exportId    : An unique identifier that is updated each time the
- *                    package the data export is generated.
- */
-let packageTemplate = {
-    package: {
-        pairs: {
-            EUR: {
-                assets: {
-                    btc: {
-                        symbol: 'BTC/EUR',
-                        fractional_slots: null,
-                        timestamp: null,
-                        formatted: {
-                            current_price: null,
-                            previous_price: null,
-                            change_price: null,
-                            change_percent: null
-                        },
-                        original: {
-                            current_price: null,
-                            previous_price: null,
-                            change_price: null,
-                            change_percent: null
-                        },
-                        trend: null
-                    }
-                }
-            },
-            USD: {
-                assets: {
-                    btc: {
-                        symbol: 'BTC/USD',
-                        decimals: null,
-                        fractional_slots: null,
-                        timestamp: null,
-                        formatted: {
-                            current_price: null,
-                            previous_price: null,
-                            change_price: null,
-                            change_percent: null
-                        },
-                        original: {
-                            current_price: null,
-                            previous_price: null,
-                            change_price: null,
-                            change_percent: null
-                        },
-                        trend: null
-                    }
-                }
-            }
-        },
-        utility: {
-            exportId: null,
-            exportTimestamp: null
-        }
-    }
-};
-// }}}2
 
 /** Data Template {{{2
  * Template for the persistent data container.
@@ -153,8 +89,8 @@ var webSocketTemplate = {
         'isFeedActive': false
     },
     'version': {
-        'schema': 'rest-v0.0.1.[2]',
-        'api': 'rest-V1.01'
+        'schema': 'websocket-v0.0.1.[2]',
+        'api': 'websocket-V1.01'
     },
     'package': {}
 };
@@ -164,7 +100,6 @@ module.exports = {
     webSocketTemplate: webSocketTemplate,
     restApiTemplate: restApiTemplate,
     dataTemplate: dataTemplate,
-    packageTemplate: packageTemplate
 };
 
 // vim: fdm=marker ts=4

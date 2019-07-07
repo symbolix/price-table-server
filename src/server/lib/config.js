@@ -1,7 +1,8 @@
-/*
- * lib-config
+/* Price Table Server | tradekit.io
  *
- * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
+ * @mudule: config
+ *
+ * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
  */
 
@@ -46,21 +47,40 @@ var resources = {
     CURRENT_VERBOSITY_DEPTH: 9,
 };
 
-function moduleTest(){
-    console.log('__CONFIGS__ module accessed.');
-}
+/** @public getResource(resource) {{{1
+ *
+ * A public getter for the configuration items. The item is requested through
+ * the _resource_ parameter.
+ *
+ * @param {String} resource
+ *
+ */
 
 function getResource(resource){
     return resources[resource];
 }
+// }}}1
+
+/** @public setResource(resource, value) {{{1
+ *
+ * A public setter for the configuration items. The item is requested through
+ * the _resource_ parameter and the value to be set is passed in through the
+ * _value_ argument.
+ *
+ * @param {String} resource
+ * @param {String|Number} value
+ *
+ */
 
 function setResource(resource, value){
     // resources[resource] = value;
     throw new Error('Changing configuration options is NOT allowed!');
 }
+// }}}1
 
 module.exports = {
-    moduleTest: moduleTest,
     set: setResource,
     get: getResource
 };
+
+// vim: fdm=marker ts=4

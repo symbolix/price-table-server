@@ -1,7 +1,8 @@
-/*
- * lib-utils
+/* Price Table Server | tradekit.io
  *
- * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
+ * @mudule: utils
+ *
+ * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
  */
 
@@ -18,6 +19,8 @@ const logging = require('./logging');
 const mockdata = require('./mock-data');
 const config = require('./config');
 const { MockExchangeError, FileStreamError } = require('./errors');
+
+var MODULE = 'utils';
 
 // The configuration for fractions formatting.
 // For example:
@@ -40,16 +43,20 @@ const retryExceptions = [
 
 /* Private Functions */
 
-// @private async _readState(filepath) {{{1
-//
-//  ARGS:
-//      filepath: full or relative path to a state file.
-//  INFO:
-//      A private function with a lower level 'readFile' directive.
-//
+/** @private async _readState(filepath) {{{1
+*
+* A private function with a lower level 'readFile' directive.
+* The _filepath_ parameter is the full or relative path to a state file.
+*
+* @param {String} filepath
+* @return {Promise}
+*/
+
 async function _readState(filepath) {
-    const CONTEXT = '_readState';
+    const CONTEXT = MODULE + '.' + '_readState';
+
     let reason;
+
     return new Promise(function(resolve, reject) {
         fs.readFile(filepath, 'utf8', function(err, data){
             if (err) {
@@ -82,17 +89,22 @@ async function _readState(filepath) {
 }
 // }}}1
 
-// @private async _writeState(filepath, data) {{{1
-//
-//  ARGS:
-//      filepath: full or relative path to a state file.
-//      data    : data object to be cached.
-//  INFO:
-//      A private function with a lower level 'writeFile' directive.
-//
+/** @private async _writeState(filepath, data) {{{1
+*
+* A private function with a lower level 'writeFile' directive.
+* The _filepath_ parameter is the full or relative path to a state file.
+* The _data_ parameter is the data object to be cached.
+*
+* @param {String} filepath
+* @param {Array} data
+* @return {Promise}
+*/
+
 async function _writeState(filepath, data) {
-    const CONTEXT = '_writeState';
+    const CONTEXT = MODULE + '.' + '_writeState';
+
     let reason;
+
     return new Promise(function(resolve, reject) {
         fs.writeFile(filepath, JSON.stringify(data), ((err) => {
             if (err) {
@@ -122,15 +134,15 @@ async function _writeState(filepath, data) {
 }
 // }}}1
 
-// @private isReservedException(array, exception) {{{1
-//
-//  ARGS:
-//      array    : an array of reserved exception objects
-//      exception: an exception object.
-//  INFO:
-//      A private function to test if an exception is part of reserved
-//      exceptions.
-//
+/** @private isReservedException(reservedExceptions, exception) {{{1
+*
+* A private function to test if an exception, provided through the _exception_ parameter, is part of
+* the reserved exceptions specified in the _reservedExceptions_ parameter.
+*
+* @param {Array} reservedExceptions
+* @param {String} exception
+*/
+
 function isReservedException(reservedExceptions, exception) {
     let arrayLength = reservedExceptions.length;
     let state = false;
@@ -143,13 +155,17 @@ function isReservedException(reservedExceptions, exception) {
 }
 // }}}1
 
-/** formatNumbers(raw, fractionalDecimals) {{{1
- * A function to format the fractional digits based on the decimals count
- * passed through the argument.
- * @param {float} raw A float number.
- * @param {int} fractionalDecimals Number of decimals after the dot.
- * @returns {string} A formatted string.
+/** @private formatNumbers(raw, fractionalDecimals) {{{1
+ *
+ * A function to format the fractional digits of a float provided through the _raw_
+ * argument. The formatting operation is based on the decimals count provided
+ * through the _fractionalDecimals_ argument.
+ *
+ * @param {Float} raw
+ * @param {Int} fractionalDecimals
+ * @returns {String}
  */
+
 function formatNumbers(raw, fractionalDecimals) {
     // This is the fractional modifier. For example: 10s, 100s etc.
     // This modifier is used when rounding the incoming fraction.
@@ -195,42 +211,36 @@ function formatNumbers(raw, fractionalDecimals) {
 }
 // }}}1
 
-// (DEPRECATED)
-// @private (DEPRECATED) __formatNumbers(raw) {{{1
-function __deprecated_formatNumbers(raw) {
-    var i = parseFloat(raw);
-    if(isNaN(i)) { i = 0.00; }
-    var minus = '';
-    if(i < 0) { minus = '-'; }
-    i = Math.abs(i);
-    i = parseInt((i + .005) * 100);
-    i = i / 100;
-    let s = new String(i);
-    if(s.indexOf('.') < 0) { s += '.00'; }
-    if(s.indexOf('.') == (s.length - 2)) { s += '0'; }
-    s = minus + s;
-    return parseFloat(s);
-}
-// }}}1
-
 /* Public Functions */
 
-/** moduleTest() {{{1
-* A simple module test function.
-*/
+/** @public moduleTest() {{{1
+ *
+ * A simple module test function.
+ */
 function moduleTest(){
-    console.log('__UTILS__ module accessed.');
+    let CONTEXT = MODULE + '.' + 'moduleTest';
+
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        message: ('__UTILS__ module accessed.'),
+    });
 }
 //}}}1
 
-/** async writeState(filepath, data) {{{1
- * A function to write a JSON cache file.
- * @param {string} filepath Full or relative path to a state file.
- * @param {object} data A data container object.
+/** @public async writeState(filepath, data) {{{1
+ *
+ * A wrapper function to write a JSON object provided with the _data_
+ * parameter, to the cache file specified through the _filepath_ parameter.
+ *
+ * @param {String} filepath
+ * @param {object} data
  * @returns {} response
  */
+
 async function writeState(filepath, data) {
-    const CONTEXT = 'writeState';
+    const CONTEXT = MODULE + '.' + 'writeState';
+
     let response;
 
     try {
@@ -274,20 +284,24 @@ async function writeState(filepath, data) {
 }
 // }}}1
 
-/** async readState(filepath) {{{1
- * A promise wrapper for the JSON cache file request.
- * @param {string}   filepath: full or relative path to a state file.
- * @param {function} callback: a function to be executed on promise delivery.
+/** @public async readState(filepath) {{{1
  *
- * @returns {object} That is structured as { payload: obj, retry: boolean, state: boolean }
+ * A promise wrapper for the JSON cache file read request. The _filepath_ parameter is the full or
+ * relative path to a state file. The function returns a response that is structured in the
+ * following way: { payload: obj, retry: boolean, state: boolean }
+ *
+ * @param {String} filepath
+ * @returns {Object}
  */
+
 async function readState(filepath){
+    const CONTEXT = MODULE + '.' + 'readState';
+
     let response = {
         payload: null,
         retry: true,
         state: false
     };
-    const CONTEXT = 'readState';
 
     try {
         // Send the 'read state' request only if the file exists.
@@ -309,7 +323,7 @@ async function readState(filepath){
                 message: 'Following state cache file was NOT found: {0}'.stringFormatter(filepath)
             });
         } else {
-            // On SUCCESS, inform us.
+            // On SUCCESS, let us know everything is fine.
             log.info({
                 context: CONTEXT,
                 verbosity: 5,
@@ -350,14 +364,18 @@ async function readState(filepath){
 }
 // }}}1
 
-/** getAge (startDate, endDate) {{{1
- * Generates an age object based on the provided start and end dates.
+/** @public getAge (startDate, endDate) {{{1
+ *
+ * Generates an age object based on the provided _startDate_ and _endDate_ parameters.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
  * (https://www.tutorialspoint.com/How-to-get-time-difference-between-two-timestamps-in-seconds)
- * @param {object} startDate : The date object for the start date.
- * @param {object} endDate   : The date object for the end date.
- * @returns {object} The difference in days, hours, minutes, seconds
+ * Returns the difference in days, hours, minutes, seconds.
+ *
+ * @param {Object} startDate
+ * @param {Object} endDate
+ * @returns {Object}
  */
+
 function getAge(startDate, endDate) {
     var res = Math.abs(startDate - endDate) / 1000;
 
@@ -381,21 +399,27 @@ function getAge(startDate, endDate) {
         seconds: seconds
     };
 
-    // Public Getter
+    // A public getter.
     this.getDiff = function(){
         return this.diff;
     };
 }
 // }}}1
 
-/** getAge.isUpToDate(ageLimitObj) {{{1
+/** @public getAge.isUpToDate(ageLimitObj) {{{1
+ *
  * This is a public method attached to the getAge() function.
- * Relies on internal data of a getAge() instance.
+ * Relies on the internal data of a getAge() instance.
  * (https://stackoverflow.com/questions/54811010/how-should-i-deal-with-nested-conditional-statements)
  *
- * @param {object} ageLimitObj structured in the folllowing way: { days: 0, hours: 0, minutes: 5, seconds: 59 }
- * @returns {boolean} TRUE for up-to-date and FALSE for old states.
+ * The _ageLimitObj_ parameter is an object structured in the following way:
+ *      { days: 0, hours: 0, minutes: 5, seconds: 59 }
+ * The function returns a TRUE state for up-to-date results and a FALSE state for old states.
+ *
+ * @param {Object}
+ * @returns {Boolean}
  */
+
 // Attach the following public utility method to getAge()
 getAge.prototype.isUpToDate = function(ageLimitObj) {
     const CONTEXT = this.constructor.name + '.isUpToDate';
@@ -420,7 +444,6 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
             message: '\t\tCycle (' + unitsIndex + '), Item [' + UNITS[unitsIndex] + '], limit [' + limitAge[UNITS[unitsIndex]] + '], current value: [' + currentAge[UNITS[unitsIndex]] + '].',
         });
 
-
         // Here we check: is our limit unit less than our current?
         if (limitAge[UNITS[unitsIndex]] < currentAge[UNITS[unitsIndex]]) {
             log.debug({
@@ -444,18 +467,23 @@ getAge.prototype.isUpToDate = function(ageLimitObj) {
 };
 // }}}1
 
-/** generatePayload(dataObject) {{{1
- * Creates the payload object.
+/** @public generatePayload(dataObject) {{{1
+ *
+ * Creates the payload object based on the expects a data object passed through
+ * the _dataObject_ parameter.
+ *
  * Calculations:
  *      Increase = New Number - Original Number
  *      % increase = Increase ÷ Original Number × 100
  *      Decrease = Original Number - New Number
  *      % decrease = Decrease ÷ Original Number × 100
  *      (Note how the % calculations are identical,-/+ determine the increase or decrease)
- *  @param {object} data Expects a data object.
+ *
+ *  @param {Object} data
  */
+
 function generatePayload(dataObj, pair){
-    const CONTEXT = 'generatePayload';
+    const CONTEXT = MODULE + '.' + 'generatePayload';
 
     // Payload Template
     let payload = {
@@ -529,15 +557,22 @@ function generatePayload(dataObj, pair){
 }
 // }}}1
 
-/** sendExchangeRequest(id, pair, symbols) {{{1
- * A wrapper for the exchange request.
- * @params {string} id The exchange id.
- * @params {string} pair The fiat pair.
- * @params {array} symbols An array of symbols.
- * @returns {object} A data container populated with ticker data.
+/** @public sendExchangeRequest(id, pair, symbols) {{{1
+ *
+ * A wrapper for the exchange request. The _id_ parameter is the exchange id.
+ * The _pair_ parameter is a fiat pair (any of the USD, EUR etc. pairs).
+ * The _symbols_ parameter is a way to pass in an array of symbols (any of the XBT, XRP, ETH etc. symbols).
+ * At the end, a data container populated with ticker data is returned.
+ *
+ * @params {String} id
+ * @params {String} pair
+ * @params {Array} symbols
+ * @returns {Object}
  */
+
 async function sendExchangeRequest(id, pair, symbols){
-    const CONTEXT = 'exchangeRequest';
+    const CONTEXT = MODULE + '.' + 'exchangeRequest';
+
     let processData = {
         assets: {},
         signature: {}
@@ -573,7 +608,11 @@ async function sendExchangeRequest(id, pair, symbols){
         try {
             // (TEST): start
             // const delay = (ms) => new Promise(resolve => setTimeout(() => {
-            //     console.log(`___TEST___: Deliberate slow-down activated. Waiting for ${ms} millisecond(s) ...`);
+            //     log.debug({
+            //            context: CONTEXT,
+            //            verbosity: 5,
+            //            message: (`___TEST___: Deliberate slow-down activated. Waiting for ${ms} millisecond(s) ...`),
+            //        });
             //     resolve('ok');
             // }, ms));
             //
@@ -645,16 +684,18 @@ async function sendExchangeRequest(id, pair, symbols){
 }
 // }}}1
 
-/** checkForEqualArrays(a, b) {{{1
- * Compare two arrays and return 'true' if they are identical.
- * @params {Array} a First array.
- * @params {Array} b Second array.
- * @returns {boolean} Return true if the arrays are identical, false if they
- * are not.
+/** @public checkForEqualArrays(a, b) {{{1
+ *
+ * Compares two arrays and returns 'true' if the arrays are identical.
  * (https://stackoverflow.com/questions/7837456/how-to-compare-arrays-in-javascript)
+ *
+ * @params {Array} a
+ * @params {Array} b
+ * @returns {Boolean}
  */
+
 function checkForEqualArrays(a, b) {
-    // if the other array is a falsy value, return
+    // if the other array is a false value, return
     if (!a || !b)
         return false;
 
@@ -665,7 +706,7 @@ function checkForEqualArrays(a, b) {
     for (var i = 0, l = a.length; i < l; i++) {
         // Check if we have nested arrays
         if (a[i] instanceof Array && b[i] instanceof Array) {
-            // recurse into the nested arrays
+            // recurs into the nested arrays
             if (!a[i].equals(b[i]))
                 return false;
         }
@@ -678,16 +719,19 @@ function checkForEqualArrays(a, b) {
 }
 // }}}1
 
-/** validateCache(cache, entry) {{{1
- * Expects a state cache and evaluates that for a specific entry.
- * @params {Array} cache A state-cache array.
- * @params {string} entry A specific 'entry' within the state-cache.
- * @returns {boolean} Returns an object bundle of boolean flags.
+/** @pubic validateCache(cache, entry) {{{1
+ *
+ * Expects a state cache and evaluates that incoming cache based on a specific entry.
+ * The _cache_ is a state-cache array. The _entry_ argument is a specific 'entry' within the state-cache.
+ * The result is an object bundle containing boolean flags.
+ *
+ * @params {Array} cache
+ * @params {String} entry
+ * @returns {boolean}
  */
-function validateCache(cache, entry) {
 
-    // Initialise
-    const CONTEXT = 'validateCache';
+function validateCache(cache, entry) {
+    const CONTEXT = MODULE + '.' + 'validateCache';
 
     let result = {
         current: false,
@@ -735,7 +779,7 @@ function validateCache(cache, entry) {
         }
 
         // Check the incoming state for the required properties.
-        // Check the AGEof the stored data.
+        // Check the AGE of the stored data.
         if (cache.data.current.hasOwnProperty(entry) &&
             cache.data.current[entry].hasOwnProperty('signature') &&
             cache.data.current[entry].signature.hasOwnProperty('timestamp') &&
@@ -754,7 +798,7 @@ function validateCache(cache, entry) {
                 message: '\t<CURRENT_TIME> ' + currentTime + ' <STATE_CACHE:' + entry.toUpperCase() + ':TIME> ' + stateCacheTime,
             });
 
-            // Get timestamp difference and limits.
+            // Get timestamp difference and the age limits.
             let currentAgeObj = new getAge(currentTime, stateCacheTime);
             let diff = currentAgeObj.getDiff();
 
@@ -801,7 +845,8 @@ function validateCache(cache, entry) {
 }
 // }}}1
 
-/** generateStateCacheValidators(cache, entries) {{{1
+/** @public generateStateCacheValidators(cache, entries) {{{1
+ *
  * A wrapper function for the validateCache() function. Designed to batch
  * process the state-cache validations process.
  *
@@ -810,7 +855,8 @@ function validateCache(cache, entry) {
  * @returns {Array} Returns an object bundle of validation results.
  */
 function generateStateCacheValidators(cache, entries) {
-    const CONTEXT = 'validators';
+    const CONTEXT = MODULE + '.' + 'validators';
+
     let stateCacheValidators = {};
 
     // Iterate over entries: 'eur' and 'usd'
@@ -859,13 +905,16 @@ function generateStateCacheValidators(cache, entries) {
 }
 // }}}1
 
-/** consolidateStateCacheValidators(validators) {{{1
- * Consolidates multiple validators and evaluates the result. Also generates
- * a vlidation table.
+/** @public consolidateStateCacheValidators(validators) {{{1
  *
- * @params {Array} validators Multiple state-cache validation results.
- * @returns {Array} Returns an object with the flattened validators.
+ * Consolidates multiple validators and evaluates the result. Also generates
+ * a validation table. Expects a bundle of state-cache validation results
+ * passed through the _validators_ parameter. Returns an object with the flattened validators.
+ *
+ * @params {Array} validators
+ * @returns {Array}
  */
+
 function consolidateStateCacheValidators(validators) {
     let rows = Object.keys(validators);
     let columns = [];
@@ -928,7 +977,8 @@ function consolidateStateCacheValidators(validators) {
 
     // Run the table generation.
     // Generates the 'transformedTable' component
-    // Initialize the table.
+
+    // First initialize the table.
     // +---------------------------------------+
     // | pairs | current | previous | upToDate |
     // |-------|---------|----------|----------|
@@ -958,8 +1008,8 @@ function consolidateStateCacheValidators(validators) {
 
     let transformedTable = [];
 
-    // Rebuild Tabe Data
-    // Conver a list of columns into a list of rows.
+    // Rebuild the table data by converting
+    // a list of columns into a list of rows.
     let i;
     for(i = 0; i < tableData[0].length; i++){
         let rowData = [];

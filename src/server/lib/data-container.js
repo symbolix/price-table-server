@@ -1,10 +1,18 @@
-// lib/data-container.js
+/* Price Table Server | tradekit.io
+ *
+ * @mudule: datacontainer
+ *
+ * Copyright (c) 2019 Milen Bilyanov
+ * Licensed under the MIT license.
+ */
 
 // Global Imports
-var util = require('util');
+// 'red' is actually used, so it is probably only eslint freaking about it.
+const { red, green, dim } = require ('ansicolor');
 
 // Local Imports
 var logging = require('./logging');
+var util = require('util');
 
 // Logging
 const log = logging.getLogger();
@@ -29,6 +37,7 @@ let dataObj = {};
  * arguments.
  */
 function set(...paths){
+    let CONTEXT = MODULE + '.' + 'set';
     const bundle = arguments[arguments.length - 1];
 
     // Sanity Checks
@@ -40,8 +49,12 @@ function set(...paths){
     const element = bundle[0];
     const value = bundle[1];
 
-    // Debug
-    // console.log('section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element, '| value:', value);
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        colour: dim.red,
+        message: ('SET_DATA -> ' + paths[0] + ' -> ' + paths[1] + ' -> ' + paths[2] + ' -> ' + paths[3] + ' -> ' + element),
+    });
 
     // Remove the last element
     paths.pop();
@@ -93,11 +106,17 @@ function set(...paths){
  * arguments.
  */
 function get(...paths){
+    let CONTEXT = MODULE + '.' + 'get';
     const element = paths[4];
     let result = false;
 
     // Debug
-    console.log('GET | section:', paths[0], '| field:', paths[1], '| pair:', paths[2], '| component:', paths[3], '| element:', element);
+    log.debug({
+        context: CONTEXT,
+        verbosity: 5,
+        colour: dim.green,
+        message: ('GET_DATA <- ' + paths[0] + ' <- ' + paths[1] + ' <- ' + paths[2] + ' <- ' + paths[3] + ' <= ' + element),
+    });
 
     let nested = dataObj;
 
@@ -133,124 +152,37 @@ function get(...paths){
     return result;
 }
 //}}}1
+
 /* Public Methods */
 
-/** init() {{{1
- * Initializes the data object based on the provided template.
- * @parm {object} A template data schema.
+/** @public init(template) {{{1
+ * Initializes the data object based on the provided _template_ parameter. The template is
+ * a template data schema designed to represent a data structure.
+ *
+ * @param {Object}
  */
+
 function init(template){
     dataObj = template;
 }
 //}}}1
 
-/** [DEPRECATED] update(section, field, component, element, value) {{{1
- * Returns a boolean.
+/** @public update(options) {{{1
+ *
  * A public method that wraps the private set() method.
  * We do NOT tolerate any critical errors here. The method needs to be called
  * properly or we fail all together.
- * @param {object} An options object {section, field, pair, component, element, val}
- * @returns {boolean} Success or NOT.
+ *
+ * The _options_ parameter is an options object containing the following routes into the data storage:
+ * {section, field, pair, component, element, val}.
+ *
+ * This function will return a boolean, an indication of the success of the
+ * procedure.
+ *
+ * @param {Object} options
+ * @returns {Boolean}
  */
-function __update(options){
-    let CONTEXT = MODULE + '.' + 'update';
-    let section, field, pair, component, element, value;
 
-    // Sanity Check
-    let isOptionsTypeObject = typeof options === 'object';
-
-    // Check for a valid options object.
-    if(!isOptionsTypeObject){
-        try {
-            throw new Error('Arguments must be passed in as an options object.');
-        }catch(err){
-            log.severe({
-                context: CONTEXT,
-                message: ('Function access error!\n' + err.stack)
-            });
-
-            // Terminate
-            process.exit(1);
-        }
-    }else{
-        // Handle arguments.
-        section = options.section || null;
-        field = options.field || null;
-        pair = options.pair || null;
-        component = options.component || null;
-        element = options.element || null;
-        value = options.value || null;
-    }
-
-    // Sanity Check
-    let isElementTypeObject = typeof element === 'object';
-
-    // When the element is passed in as a whole object, that would substitute
-    // any 'value' values. For example: { eth: { a: '1', b: '2', c: '3', d: '4' } } will be
-    // passed in as a whole object. We still need to check if the element
-    // consists of a single-key object. In this case, 'eth' is the only key and
-    // the rest is the value.
-    if(isElementTypeObject){
-        if(Object.keys(element).length > 1){
-            try {
-                throw new Error('Only single-key objects are allowed when passing in object based ELEMENT arguments!');
-            }catch(err){
-                log.severe({
-                    context: CONTEXT,
-                    message: ('Argument error!\n' + err.stack)
-                });
-
-                // Terminate
-                process.exit(1);
-            }
-        }else{
-            // Override value here so that it passes the argument test.
-            // Extracting the value of the element key here, but the intention
-            // is NOT to pass this in, doing this for sanity reasons.
-            value = element[Object.keys(element)[0]];
-        }
-    }
-
-    // console.log(section, element, value);
-
-    // Check for critical arguments.
-    try {
-        if(section === null || element === null || value === null){
-            throw new Error('Missing SECTION, ELEMENT or VALUE arguments detected!');
-        }
-    }catch(err){
-        log.severe({
-            context: CONTEXT,
-            message: ('Function access error!\n' + err.stack)
-        });
-
-        // Terminate
-        process.exit(1);
-    }
-
-    try {
-        let result = set2(section, field, pair, component, element, value);
-        return result;
-    }catch(err){
-        log.severe({
-            context: CONTEXT,
-            message: ('Internal function error!\n' + err.stack)
-        });
-
-        // Terminate
-        process.exit(1);
-    }
-}
-// }}}1
-
-/** update(section, field, component, element, value) {{{1
- * Returns a boolean.
- * A public method that wraps the private set() method.
- * We do NOT tolerate any critical errors here. The method needs to be called
- * properly or we fail all together.
- * @param {object} An options object {section, field, pair, component, element, val}
- * @returns {boolean} Success or NOT.
- */
 function update(options){
     let CONTEXT = MODULE + '.' + 'update';
     let section, field, pair, component, element, value;
@@ -269,7 +201,6 @@ function update(options){
             });
 
             // Terminate
-            // process.exit(1);
             throw err;
         }
     }else{
@@ -312,8 +243,6 @@ function update(options){
         }
     }
 
-    // console.log(section, element, value);
-
     // Check for critical arguments.
     try {
         if(section === null || element === null || value === null){
@@ -341,17 +270,23 @@ function update(options){
 
         // Terminate
         throw err;
-        //process.exit(1);
     }
 }
 // }}}1
 
-/** query(section, field, component, element) {{{1
- * Returns a query result.
- * A public method that wraps the private get() method.
- * @param {object} An options object {section, field, pair, component, element}
- * @returns {value} Returns the corresponding value.
+/** @public query(options) {{{1
+ *
+ * A public method that wraps the private get() method. Expects an _options_
+ * argument that will pass a route to the data storage in the following format:
+ * {section, field, pair, component, element}
+ *
+ * This function will return the corresponding value stored at the queried
+ * location within the data storage.
+ *
+ * @param {Object}
+ * @returns {Value}
  */
+
 function query(options){
     let CONTEXT = MODULE + '.' + 'query';
     let section, field, pair, component, element;
@@ -382,8 +317,6 @@ function query(options){
         element = options.element || null;
     }
 
-    // console.log(section, element, value);
-
     // Check for critical arguments.
     try {
         if(section === null || element === null){
@@ -397,7 +330,6 @@ function query(options){
 
         // Terminate
         throw err;
-        //process.exit(1);
     }
 
     try {
@@ -411,78 +343,26 @@ function query(options){
 
         // Terminate
         throw err;
-        //process.exit(1);
     }
 }
 // }}}1
 
-// getData {{{1
-// A method to access the DATA section of our data container.
-// 'field' being one of the states: previous or current.
-// 'component' is either 'symbols' or 'info'.
-function getData(field, component, key){
-    return get('data', field, component, key);
-}
-// }}}1
-
-// [DEPRECATED] updateSymbol {{{1
-// A higher level wrapper method that modifies the ASSETS section of our data container.
-// 'field' being one of the states: 'previous' or 'current'.
-function updateSymbol(field, key, value){
-    updateData(field, 'assets', key, value);
-}
-// }}}1
-
-// getSymbol {{{1
-// A method to access the ASSETS section of our data container.
-// 'field' being one of the states: previous or current.
-function getSymbol(field, key){
-    return getData(field, 'assets', key);
-}
-// }}}1
-
-// [DEPRECATED] updateSignature {{{1
-// A higher level wrapper method that modifies the ASSETS section of our data container.
-// 'field' being one of the states: 'previous' or 'current'.
-function updateSignature(field, key, value){
-    updateData(field, 'signature', key, value);
-}
-// }}}1
-
-// getInfo {{{1
-// A higher level wrapper method that gives access to the INFO section of our data container.
-// 'field' being one of the states: previous or current.
-function getInfo(field, key){
-    return getData(field, 'signature', key);
-}
-// }}}1
-
-// updateConfig {{{1
-// A higher level wrapper method that modifies the SYMBOLS section of our data container.
-// 'field' being one of the states: 'previous' or 'current'.
-function updateConfig(key, value){
-    update('config', null, null, key, value);
-}
-// }}}1
-
-// getConfig {{{1
-// A method to access the SYMBOLS section of our data container.
-// 'field' being one of the states: previous or current.
-function getConfig(key){
-    return get('config', null, null, key);
-}
-// }}}1
-
-/** updatePair(pair, valueObj, {forceGranularity = false}) {{{1
+/** @public updatePair(pair, valueObj, {forceGranularity = false}) {{{1
+ *
  * A higher level wrapper method that modifies the PAIR slot of the 'current' section.
  * When the 'forceGranularity' option is set to 'true', each asset will be
- * checked prior to any updated.
- * @param {string} pair The pair slot.
- * @param {Object} valueObj The incoming pair bundle.
- * @param {boolean} forceGranularity When set to 'true', each asset will be checked.
+ * checked prior to any updates. The _pair_ parameter is the pair slot. The
+ * _valueObj_ argument is there to pass in the incoming pair bundle. When the
+ * _forceGranularity_ parameter is set to 'true', each asset will be checked
+ * prior to any updates.
+ *
+ * @param {String} pair
+ * @param {Object} valueObj
+ * @param {Boolean} forceGranularity
  */
+
 function updatePair(pair, valueObj, { forceGranularity = false }){
-    let CONTEXT = 'updatePair';
+    let CONTEXT = MODULE + '.' + 'updatePair';
     log.debug({
         context: CONTEXT,
         verbosity: 7,
@@ -551,18 +431,16 @@ function updatePair(pair, valueObj, { forceGranularity = false }){
 }
 // }}}1
 
-// getField {{{1
-// A higher level wrapper method that gets the FIELD section of our data container.
-// 'field' being one of the states: previous or current.
-function getField(field){
-    return dataObj.data[field];
-}
-// }}}1
-
 /* Utility Functions */
 
-// shuffleData {{{1
-// Copy the whole source data block to the target data block.
+/** @public shuffleData(source, target) {{{1
+ * Copy the whole data block passed in through the _source_ parameter, into the data block
+ * specified by the _target_ data block.
+ *
+ * @param {Object} source
+ * @param {Object} target
+ */
+
 function shuffleData(source, target){
     // { data: { current {} } }
     let sourceObj =  dataObj.data[source];
@@ -573,15 +451,21 @@ function shuffleData(source, target){
 }
 // }}}1
 
-// Export State {{{1
-// Return entire data structure.
+/** @public exportState() {{{1
+ *
+ * Dump the entire data structure.
+ */
+
 function exportState(){
     return dataObj;
 }
 // }}}1
 
-// Import State {{{1
-// Set the entire data structure.
+/** @public importState() {{{1
+ *
+ * Set the entire data structure.
+ */
+
 function importState(stateObject){
     dataObj = JSON.parse(JSON.stringify(stateObject));
 }
@@ -592,16 +476,8 @@ module.exports = {
     init: init,
     update: update,
     query: query,
-    getData: getData,
-    updateSymbol: updateSymbol,
-    getSymbol: getSymbol,
-    updateInfo: updateSignature,
-    getInfo: getInfo,
-    updateConfig: updateConfig,
-    getConfig: getConfig,
     shuffleData: shuffleData,
     updatePair: updatePair,
-    getField: getField,
     exportState: exportState,
     importState: importState
 };

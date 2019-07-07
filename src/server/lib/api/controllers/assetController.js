@@ -1,4 +1,5 @@
-/*
+/* Price Table Server | tradekit.io
+ *
  * REST Asset Controller
  *
  * Copyright (c) 2019 Milen Bilyanov, "cryptoeraser"
@@ -15,6 +16,8 @@ const AssetModel = require('../models/assetModel');
 // Local Imports
 const logging = require('../../logging');
 
+var MODULE = 'rest.controller';
+
 // Generic Imports
 const utils = require('../../utils');
 const data = require('../../data-container');
@@ -27,6 +30,7 @@ const log = logging.getLogger();
 let PayloadModel = AssetModel.Payload();
 PayloadModel.init(schema.restApiTemplate);
 
+// Wrap the PayloadModel as a Payload.
 const Payload = (() => {
 
     // Private Methods
@@ -38,10 +42,14 @@ const Payload = (() => {
 
     // Public Methods
     let publicMethods = {
-        /**
-         * @param {string} pair The target fiat pair.
-         * @param {function} callback A function tobe executed internally.
+        /** @public getAllAssets(pair, callback) {{{1
+         * Expects a _pair_ parameter for the target fiat pair and a _callback_
+         * function to be executed internally.
+         *
+         * @param {string} pair
+         * @param {function} callback
          */
+
         getAllAssets: (pair, callback) => {
             let error, response, state;
 
@@ -57,13 +65,19 @@ const Payload = (() => {
             }
             callback(error, response);
         },
-        /**
-         * @param {string} pair The target fiat pair.
-         * @param {function} callback A function tobe executed internally.
+        //}}}1
+
+        /** @public getSingleAsset(pair, symbol, callback) {{{1
+         * Expects a _pair_ parameter for the target fiat pair and a _callback_
+         * function to be executed internally.
+         *
+         * @param {string} pair
+         * @param {function} callback
          */
+
         getSingleAsset: (pair, symbol, callback) => {
             let error, response, state;
-            const CONTEXT = 'querySingleAsset';
+            const CONTEXT = MODULE + '.' + 'querySingleAsset';
 
 
             // Soft-error Handling
@@ -88,21 +102,29 @@ const Payload = (() => {
             }
             callback(error, response);
         }
-
+        // }}}1
     };
-
     return publicMethods;
 });
 
+// Create a Payload instance.
 let Access = Payload();
 
+/** @public getAssets(req, res, next) {{{1
+ *
+ * An Express.js controller for accessing all of the assets within the data
+ * storage. Follows the Express.js argument structure.
+ *
+ * @param {Object} req
+ * @param {Object} res
+ * @param {Object} next
+ *
+ */
+
 function getAssets(req, res, next) {
-    /*
-    (DEBUG) console.log('incoming params:', req.params);
-    When the request is made at http://localhost:9001/assets/eur the route
-    '/assets/:pair' should be passing in the params object as: { pair: 'eur' }
-    */
-    const CONTEXT = 'rest::controller';
+    // When the request is made at http://localhost:9001/assets/eur the route
+    // '/assets/:pair' should be passing in the params object as: { pair: 'eur' }
+    const CONTEXT = MODULE + '.' + 'getAssets';
     Access.getAllAssets(req.params.pair, ((err, result) => {
         try{
             if(err){
@@ -123,14 +145,23 @@ function getAssets(req, res, next) {
         }
     }));
 }
+// }}}1
+
+/** @public getAssets(req, res, next) {{{1
+ *
+ * An Express.js controller to access a single asset within the data structure.
+ * Follows the Express.js argument structure.
+ *
+ * @param {Object} req
+ * @param {Object} res
+ * @param {Object} next
+ *
+ */
 
 function getAssetBySymbol(req, res, next) {
-    /*
-    (DEBUG) console.log('incoming params:', req.params);
-    When the request is made at http://localhost:9001/asset/eur/zec the route
-    '/asset/:pair/:symbol' should be passing in the params object as: { pair: 'eur' }
-    */
-    const CONTEXT = 'rest::controller';
+    // When the request is made at http://localhost:9001/asset/eur/zec the route
+    // '/asset/:pair/:symbol' should be passing in the params object as: { pair: 'eur' }
+    const CONTEXT = MODULE + '.' + 'getAssetBySymbol';
     Access.getSingleAsset(req.params.pair, req.params.symbol, ((err, result) => {
         try{
             if(err){
@@ -151,6 +182,7 @@ function getAssetBySymbol(req, res, next) {
         }
     }));
 }
+// }}}1
 
 /* EXPORTS */
 module.exports = {
