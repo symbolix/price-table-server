@@ -169,6 +169,7 @@ function isReservedException(reservedExceptions, exception) {
 function formatNumbers(raw, fractionalDecimals) {
     // This is the fractional modifier. For example: 10s, 100s etc.
     // This modifier is used when rounding the incoming fraction.
+    // Getting an error with a value 5.9976
     let fractionalModifier = Math.pow(10, fractionalDecimals);
 
     let i = raw;
@@ -195,11 +196,22 @@ function formatNumbers(raw, fractionalDecimals) {
 
     // Process
     i = Math.abs(i);
+
     let fractionalLevels = (i.toString().split('.')[1]).length;
     let fractionalDepth = Math.pow(10, fractionalLevels);
     let fractionalLimit = 0.5 / Math.pow(10, fractionalDecimals);
     let leftover = parseFloat((i.toString().split('.')[1].slice(fractionalDecimals)/fractionalDepth));
     i = (leftover > fractionalLimit ? (Math.ceil(i*fractionalModifier)/fractionalModifier) : (Math.floor(i*fractionalModifier)/fractionalModifier));
+
+    // Fixing the no decimal bug for values such as 5.9976
+    // Without the float conversion the above value would end up as 6, with no
+    // fractional section, breaking the code that follows.
+    i = i.toFixed(fractionalDecimals);
+
+    // Let's be alert and rise an exception if this bug reoccurs.
+    if(i.toString().split('.')[1]===undefined){
+        throw new Error('Number conversion has failed for: [raw=' + raw + ', fractionalDecimals=' + fractionalDecimals + ']');
+    }
 
     // Handle Post-Process short fractional digits.
     if(i.toString().split('.')[1].length<fractionalDecimals){
@@ -527,28 +539,32 @@ function generatePayload(dataObj, pair){
     }else{
         for(var asset in dataObj.data.current[pair].assets){
             // Build Values
-            let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last, FORMAT[asset]);
-            let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last, FORMAT[asset]);
-            let changePrice = formatNumbers((parseFloat(currentPrice) - parseFloat(previousPrice)), FORMAT[asset]);
-            let changePercent = formatNumbers((getPercentChange(parseFloat(currentPrice),  parseFloat(previousPrice))), 2);
+            try {
+                let currentPrice = formatNumbers(dataObj.data.current[pair].assets[asset].last, FORMAT[asset]);
+                let previousPrice = formatNumbers(dataObj.data.previous[pair].assets[asset].last, FORMAT[asset]);
+                let changePrice = formatNumbers((parseFloat(currentPrice) - parseFloat(previousPrice)), FORMAT[asset]);
+                let changePercent = formatNumbers((getPercentChange(parseFloat(currentPrice),  parseFloat(previousPrice))), 2);
 
-            // Construct Payload Object
-            payload.assets[asset] = {
-                name:  asset,
-                formatted: {
-                    current_price: currentPrice,
-                    previous_price: previousPrice,
-                    change_price: changePrice,
-                    change_percent: changePercent,
-                },
-                original: {
-                    current_price: dataObj.data.current[pair].assets[asset].last,
-                    previous_price: dataObj.data.previous[pair].assets[asset].last,
-                    change_price: getPriceChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
-                    change_percent: getPercentChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
-                },
-                trend: getTrend(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last)
-            };
+                // Construct Payload Object
+                payload.assets[asset] = {
+                    name:  asset,
+                    formatted: {
+                        current_price: currentPrice,
+                        previous_price: previousPrice,
+                        change_price: changePrice,
+                        change_percent: changePercent,
+                    },
+                    original: {
+                        current_price: dataObj.data.current[pair].assets[asset].last,
+                        previous_price: dataObj.data.previous[pair].assets[asset].last,
+                        change_price: getPriceChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
+                        change_percent: getPercentChange(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last),
+                    },
+                    trend: getTrend(dataObj.data.current[pair].assets[asset].last, dataObj.data.previous[pair].assets[asset].last)
+                };
+            }catch(err){
+                console.log(err);
+            }
         }
     }
 
