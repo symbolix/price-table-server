@@ -18,7 +18,7 @@ var MODULE = 'globals';
 
 var resources = {
     APP_NAME: 'Price Table Server',
-    APP_VERSION: 'v0.0.1.[13]',
+    APP_VERSION: 'v0.0.2.[1]',
     DATA_FEED_IS_ACTIVE: false
 };
 

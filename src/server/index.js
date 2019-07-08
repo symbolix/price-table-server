@@ -52,6 +52,8 @@ const WEBSOCKETS_IS_ACTIVE = false;
 // Intro
 !config.get('SILENT') && console.log(`\n${APP_NAME} ${APP_VERSION}`);
 
+console.log('test');
+
 // Logging
 const log = logging.getLogger();
 

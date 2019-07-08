@@ -1,44 +1,56 @@
 {
-  "name": "price-table-server",
-  "version": "0.0.8",
-  "description": "A ticker data server.",
-  "main": "server.js",
-  "scripts": {
-    "start": "node ./src/server/server.js",
-    "prompt": "echo 'No prompt functionality available'",
-    "greet": "echo 'Welcome to my project.'"
-  },
-  "keywords": [
-    "Websockets"
-  ],
-  "author": "Milen Bilyanov <milen.bilyanov@gmail.com> (www.tradekit.io)",
-  "license": "MIT",
-  "dependencies": {
-    "ansicolor": "^1.1.78",
-    "as-table": "^1.0.36",
-    "body-parser": "^1.18.3",
-    "ccxt": "^1.18.150",
-    "express": "^4.16.4",
-    "ololog": "^1.1.117",
-    "string.bullet": "^1.0.12",
-    "table": "^5.2.2",
-    "websocket": "^1.0.28",
-    "ws": "^6.1.3"
-  },
-  "devDependencies": {
-    "browser-sync": "^2.26.3",
-    "ccxt": "^1.18.150",
-    "grunt": "^1.0.4",
-    "grunt-browser-sync": "^2.2.0",
-    "grunt-contrib-concat": "^1.0.1",
-    "grunt-contrib-connect": "^2.0.0",
-    "grunt-contrib-copy": "^1.0.0",
-    "grunt-contrib-watch": "^1.1.0",
-    "grunt-shell": "^3.0.1",
-    "ololog": "^1.1.117",
-    "rewire": "^4.0.1",
-    "string.bullet": "^1.0.12",
-    "table": "^5.2.2",
-    "ws": "^6.1.3"
-  }
+    "name": "price-table-server",
+    "version": "0.0.2",
+    "description": "A ticker data server.",
+    "main": "index.js",
+    "scripts": {
+        "clean:dist": "rm -vrf ./dist/*",
+        "build": "npm run clean:dist && babel src -d dist",
+        "start:dev": "nodemon src/server/index.js --exec babel-node",
+        "start:server": "node dist/server/index.js",
+        "prompt": "echo 'No prompt functionality available'",
+        "greet": "echo 'Welcome to my project.'"
+    },
+    "keywords": [
+        "websockets, rest, api, server"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://fanux@bitbucket.org/tradekitio/price-table-server.git"
+    },
+    "author": "Milen Bilyanov <milen.bilyanov@gmail.com> (www.tradekit.io)",
+    "license": "MIT",
+    "dependencies": {
+        "ansicolor": "^1.1.78",
+        "as-table": "^1.0.36",
+        "body-parser": "^1.18.3",
+        "ccxt": "^1.18.150",
+        "core-js": "^3.1.4",
+        "express": "^4.16.4",
+        "ololog": "^1.1.117",
+        "string.bullet": "^1.0.12",
+        "table": "^5.2.2",
+        "websocket": "^1.0.28",
+        "ws": "^6.1.3"
+    },
+    "devDependencies": {
+        "@babel/cli": "^7.5.0",
+        "@babel/core": "^7.5.0",
+        "@babel/node": "^7.5.0",
+        "@babel/preset-env": "^7.5.2",
+        "babel-loader": "^8.0.6",
+        "babel-polyfill": "^6.26.0",
+        "babel-preset-es2015": "^6.24.1",
+        "babel-preset-stage-0": "^6.24.1",
+        "browser-sync": "^2.26.7",
+        "grunt": "^1.0.4",
+        "grunt-browser-sync": "^2.2.0",
+        "grunt-contrib-concat": "^1.0.1",
+        "grunt-contrib-connect": "^2.0.0",
+        "grunt-contrib-copy": "^1.0.0",
+        "grunt-contrib-watch": "^1.1.0",
+        "grunt-shell": "^3.0.1",
+        "nodemon": "^1.19.1",
+        "rewire": "^4.0.1"
+    }
 }

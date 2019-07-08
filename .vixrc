@@ -122,10 +122,10 @@ if filereadable(g:vix_current_project.root . '/run.sh')
     " If the "run.sh" is not present, continue with the internal call.
 else
     let g:vix_current_project.dispatch.run.args =
-                \ '-cwd npm start'
+                \ '-cwd npm run start:dev'
 endif
 
 " Extra Settings
-nnoremap <F6> :Start! -title=server npm start<CR>
-nnoremap <F7> :Start! -title=data node data_writer<CR>
+nnoremap <F6> :Start! -title=dev npm run start:dev<CR>
+nnoremap <F7> :Start! -title=server npm run start:server<CR>
 " vim: ft=vim
