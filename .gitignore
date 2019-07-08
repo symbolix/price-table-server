@@ -5,7 +5,7 @@
 *~
 *swp
 # Server data files.
-data/statecache.json
+./data/statecache.json
 
 # Node modules folder
 node_modules/

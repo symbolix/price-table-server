@@ -123,7 +123,7 @@ const logging = log.configure (
             const contextStr = context ? ('[' + (context + '') + ']') : '';
             const verbosityStr = verbosity ? ('{' + (verbosity + '') + '}') : '';
             const levelStr = level && (levelColor[level] || (s => s)) (level.toUpperCase ());
-            return bullet(dim(contextStr.padEnd(34)) + '' + dim(verbosityStr.padStart(0)) + '\t' + levelStr.padStart(0) + '\t', lines);
+            return bullet(dim(contextStr.padEnd(35)) + dim(verbosityStr.padStart(0)) + '\t' + levelStr.padStart(0) + '\t', lines);
         },
         locate: false
     }
