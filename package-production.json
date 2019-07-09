@@ -8,7 +8,6 @@
         "prep:dist": "./node_modules/.bin/mkdirp ./dist",
         "copy:server": "./node_modules/.bin/ycopy ./src/server/ ./dist/ -r '^((?!tests$).)*$' -i",
         "copy:package": "./node_modules/.bin/copyfiles package-production.json ./dist/",
-        "rename:package": "./node_modules/.bin/rename ./dist/package-production.json ./dist/package.json",
         "build": "npm run clean:dist && npm run prep:dist && npm run copy:server",
         "start:dev": "nodemon src/server/index.js",
         "start:server": "node dist/server/index.js",
@@ -49,7 +48,6 @@
         "grunt-shell": "^3.0.1",
         "make-dir-cli": "^2.0.0",
         "nodemon": "^1.19.1",
-        "rename-cli": "^6.0.0",
         "rewire": "^4.0.1",
         "rimraf": "^2.6.3",
         "ycopy": "^0.1.2"
