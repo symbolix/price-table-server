@@ -8,6 +8,36 @@
 
 'use strict';
 
+var path = require('path');
+
+/** @private getStateCacheFilePath() {{{1
+ *
+ * A private function that is used as a getter to query the location of the state cache file.
+ * Returns a string with the appropriate file path.
+ *
+ * @param {String} resource
+ * @return {String}
+ *
+ */
+
+const getStateCacheFilePath = () => {
+    // Test the current environment.
+    // Assume 'development' environment by default.
+    let isDevelopmentEnvironment = process.env.NODE_ENV == 'production' ? false : true;
+
+    let separator = path.sep;
+    let currentPath = __dirname.split(separator);
+
+    currentPath.pop();
+
+    let stateCacheProductionLocation = (currentPath.join(separator) + '/data/statecache.json');
+    let stateCacheDevelopmentLocation = path.resolve('./data/statecache.json');
+
+    let stateCacheFilePath = isDevelopmentEnvironment ? stateCacheDevelopmentLocation : stateCacheProductionLocation;
+    return (stateCacheFilePath);
+};
+//}}}1
+
 // Main Configuration Data Structure
 var resources = {
     PAIRS: ['eur', 'usd'],
@@ -27,7 +57,7 @@ var resources = {
     EXCHANGE: 'kraken',
     DEBUG_DATA_FEED_STATUS: false,
     SILENT: false,
-    STATE_CACHE_FILE: './data/statecache.json',
+    STATE_CACHE_FILE: getStateCacheFilePath(),
     DEBUG: {
         console: true,
         logfile: false

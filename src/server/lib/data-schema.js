@@ -79,20 +79,26 @@ var restApiTemplate = {
 
 /** webSocketTemplate {{{2
  * Template for the WEBSOCKETS carrier.
- * package  : The payload.
+ * payload: The payload.
  */
 var webSocketTemplate = {
-    'message': null,
-    'timestamp': [],
-    'records': {},
-    'flags': {
-        'isFeedActive': false
+    info: {
+        version: {
+            schema: 'websocket-v0.0.1.[2]',
+            api: 'websocket-V1.01'
+        }
     },
-    'version': {
-        'schema': 'websocket-v0.0.1.[2]',
-        'api': 'websocket-V1.01'
+    message: null,
+    feedback: {
+        records: {
+            requestId: null,
+            requestTimestamp: []
+        },
+        diagnostics: {
+            flags: {}
+        }
     },
-    'package': {}
+    payload: {}
 };
 //}}}2
 

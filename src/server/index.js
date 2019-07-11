@@ -48,6 +48,7 @@ const ASSETS = config.get('ASSETS').map(asset => asset.toUpperCase());
 const APP_NAME = globals.get('APP_NAME');
 const APP_VERSION = globals.get('APP_VERSION');
 const WEBSOCKETS_IS_ACTIVE = false;
+const STATE_CACHE_FILE = config.get('STATE_CACHE_FILE');
 
 // Intro
 !config.get('SILENT') && console.log(`\n${APP_NAME} ${APP_VERSION}`);
@@ -694,7 +695,7 @@ const update = async () => {
                 message: ('Attempting to generate a fresh data state cache.')
             });
 
-            await exportExchangeData(config.get('STATE_CACHE_FILE'), data.exportState(),
+            await exportExchangeData(STATE_CACHE_FILE, data.exportState(),
                 { retryLimit: config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT') },
             );
 
@@ -841,9 +842,9 @@ function initWebSocket() {
     // This needs to be in the message section (onMessage) is still an option as we
     // might need to send an input from the client.
     wss.on('connection', function(ws) {
-        /*------------------------------------------------------------------;
-         ; This section runs only on a 'message receive from client' event. ;
-         ------------------------------------------------------------------*/
+        /*-------------------------------------------------------------------;
+         ; This section runs only on a 'message received from client' event. ;
+         -------------------------------------------------------------------*/
         // on.message {{{2
         ws.on('message', (message) => {
             let incomingTransmission = JSON.parse(message);
@@ -966,7 +967,7 @@ function initWebSocket() {
     ; Exchange Data Cache Import ;
     ;---------------------------*/
     try {
-        stateCache = await getStateCache(config.get('STATE_CACHE_FILE'),
+        stateCache = await getStateCache(STATE_CACHE_FILE,
             { retryLimit: stateCacheImportRetryLimit }
         );
 
@@ -1163,14 +1164,12 @@ function initWebSocket() {
             });
 
             // Populate the data container with the cache data.
-            // (OLD WAY) data.updateField('previous', stateCache.data.previous, { forceGranularity: false });
             data.update({
                 section: 'data',
                 element: 'previous',
                 value: stateCache.data.previous
             });
 
-            // (OLD WAY) data.updateField('current', stateCache.data.current, { forceGranularity: false });
             data.update({
                 section: 'data',
                 element: 'current',
@@ -1196,7 +1195,7 @@ function initWebSocket() {
                 message: ('Attempting to generate a fresh data state cache.')
             });
 
-            await exportExchangeData(config.get('STATE_CACHE_FILE'), data.exportState(),
+            await exportExchangeData(STATE_CACHE_FILE, data.exportState(),
                 { retryLimit: exchangeDataExportRetryLimit },
             );
 
@@ -1217,8 +1216,12 @@ function initWebSocket() {
     ; Start Services ;
     ;---------------*/
     try {
-        // console.log('*** ALL SERVICES DISABLED! ***');
         // Services
+
+        // Example interval API: runInterval(skip, interval, callback)
+        // skip       : Skip that many minutes.
+        // internval  : Wait for that many seconds (0-59 seconds).
+        // callback   : What to do once the interval is complete.
         requestInterval.runInterval(1, 0, function() {
             update();
         });
