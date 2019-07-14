@@ -1,3 +1,10 @@
+/*
+    TODO:
+        * Fix the globals.get('DATA_FEED_IS_ACTIVE') and globals.set('DATA_FEED_IS_ACTIVE') functionality.
+        * Properly implement the dataFeed states: online, offline, degraded.
+        * Implement the UUID functionality.
+*/
+
 'use strict';
 
 // Project Imports
@@ -20,6 +27,7 @@ const schema = require('./lib/data-schema.js');
 const timers = require('./lib/timers.js');
 const assetRoutes = require('./lib/api/routes/assetRoutes');
 const sockets = require('./lib/socket/socketObject');
+const telemetry = require('./lib/telemetry');
 
 // Symbols {{{1
 const SYMBOLS = [
@@ -53,8 +61,6 @@ const STATE_CACHE_FILE = config.get('STATE_CACHE_FILE');
 // Intro
 !config.get('SILENT') && console.log(`\n${APP_NAME} ${APP_VERSION}`);
 
-console.log('test');
-
 // Logging
 const log = logging.getLogger();
 
@@ -63,6 +69,9 @@ let requestInterval = new timers.Interval('request');
 
 // Socket Layer
 let SocketObject = new sockets.Layer(schema.webSocketTemplate, APP_NAME, APP_VERSION);
+
+// Telemetry Layer
+let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
 
 /*--------------------;
  ; Server Application ;
@@ -667,6 +676,8 @@ const update = async () => {
             });
         }
 
+        let validators = [];
+
         // Run the exchange request(s).
         for (const pair of PAIRS) {
             try {
@@ -676,6 +687,9 @@ const update = async () => {
                     { retryLimit: 3 },
                     { allowPartial: true }
                 );
+
+                // Accumulate the validators here.
+                Object.keys(exchangeData['assets']).forEach((a) => validators.push(exchangeData['assets'][a]['success']));
 
                 // Update the data container. Propagate only the assets with a success flag.
                 data.updatePair(
@@ -688,6 +702,25 @@ const update = async () => {
                     context: CONTEXT,
                     message: ('Exchange data request has failed!\n' + error.stack)
                 });
+
+                // Update Telemetry
+                TelemetryObject.dataFeedState = 'offline';
+            }
+        }
+
+        // Evaluate the data feed integrity.
+        let consolidatedValidators = validators
+            .map((flag) => { return flag = flag ? 1 : 0; })
+            .filter(e => e > 0)
+            .reduce((acc, val) => { return acc + val; }, 0);
+
+        if (consolidatedValidators == validators.length) {
+            TelemetryObject.dataFeedState = 'online';
+        } else {
+            if (consolidatedValidators == 0) {
+                TelemetryObject.dataFeedState = 'degraded';
+            } else {
+                TelemetryObject.dataFeedState = 'offline';
             }
         }
 
@@ -718,7 +751,7 @@ const update = async () => {
         // let payload = utils.generatePayload(data.exportState());
 
         // Call the emission hook within the web-socket loop.
-        activeWebSocketEmission( {signal: 'ready', dataFeed:  'online'} );
+        activeWebSocketEmission( {signal: true, dataFeed:  'online'} );
 
         // Success Label
         log.label({
@@ -851,11 +884,11 @@ function initWebSocket() {
         };
 
         SocketObject.clientInput = incomingTransmission;
-        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+        SocketObject.isDataFeedActive = TelemetryObject.query('isDataFeedActive');
 
         // Insert the payload.
-        SocketObject.payload = { signal: 'ready' };
-        SocketObject.dataFeed = { dataFeed: 'online' };
+        SocketObject.payload = { signal: true };
+        SocketObject.dataFeed = { dataFeed: TelemetryObject.query('dataFeedState') };
 
         // Sending the payload to all clients.
         wss.clients.forEach((client) => {
@@ -883,7 +916,7 @@ function initWebSocket() {
         // Data schema updates.
         SocketObject.message = {
             event: 'onUpdate',
-            contents: 'DATA_FEED_READY_SIGNAL_BROADCASTED'
+            contents: 'DATA_FEED_SIGNAL_BROADCASTED'
         };
 
         // Insert the payload.
@@ -892,7 +925,7 @@ function initWebSocket() {
 
         // Then update the carrier.
         SocketObject.clientInput = null;
-        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+        SocketObject.isDataFeedActive = TelemetryObject.query('isDataFeedActive');
 
         // Sending the payload to all clients.
         wss.clients.forEach((client) => {
@@ -923,10 +956,10 @@ function initWebSocket() {
         };
 
         // Insert the payload.
-        SocketObject.payload = { signal: 'ready' };
-        SocketObject.dataFeed = { dataFeed: 'online' };
+        SocketObject.payload = { signal: true };
+        SocketObject.dataFeed = TelemetryObject.query('dataFeedState');
 
-        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+        SocketObject.isDataFeedActive = TelemetryObject.query('isDataFeedActive');
 
         // Sending the payload to all clients.
         wss.clients.forEach((client) => {
@@ -934,7 +967,6 @@ function initWebSocket() {
             let transmission = JSON.stringify(SocketObject.query());
 
             // Debug
-            // console.log('[server:onConnection:init] Sending:\n', transmission);
             console.log('[server:onConnection:init]');
 
             // Send the transmission.
@@ -1028,7 +1060,7 @@ function initWebSocket() {
                     )
             });
         }
-    } catch(error) {
+    }catch(error){
         // Hard Error, terminate.
         log.error({
             context: CONTEXT,
@@ -1052,6 +1084,8 @@ function initWebSocket() {
         /*------------------------------;
         ; NEEDED: Exchange Data Request ;
         ;------------------------------*/
+        let validators = [];
+
         for (const pair of PAIRS) {
             try {
                 // Make a data request, so that we can reconstruct any missing bits
@@ -1060,6 +1094,9 @@ function initWebSocket() {
                     { retryLimit: exchangeDataImportRetryLimit },
                     { allowPartial: false }
                 );
+
+                // Accumulate the validators here.
+                Object.keys(exchangeData['assets']).forEach((a) => validators.push(exchangeData['assets'][a]['success']));
 
                 // Exchange Data Request Failed, throw an exception.
                 if(!exchangeData){
@@ -1154,8 +1191,7 @@ function initWebSocket() {
                         value: exchangeData,
                     });
                 }
-
-            } catch(error) {
+            }catch(error){
                 // Hard Error, terminate.
                 exchangeDataImportIsSuccess, doExportStateCache = false;
                 log.severe({
@@ -1163,8 +1199,27 @@ function initWebSocket() {
                     message: ('Exchange data IMPORT has failed.\n' + error.stack)
                 });
 
+                // Update Telemetry
+                TelemetryObject.dataFeedState = 'offline';
+
                 // Terminate
                 process.exit(1);
+            }
+        }
+
+        // Evaluate the data feed integrity.
+        let consolidatedValidators = validators
+            .map((flag) => { return flag = flag ? 1 : 0; })
+            .filter(e => e > 0)
+            .reduce((acc, val) => { return acc + val; }, 0);
+
+        if (consolidatedValidators == validators.length) {
+            TelemetryObject.dataFeedState = 'online';
+        } else {
+            if (consolidatedValidators == 0) {
+                TelemetryObject.dataFeedState = 'degraded';
+            } else {
+                TelemetryObject.dataFeedState = 'offline';
             }
         }
     } else {
@@ -1233,7 +1288,43 @@ function initWebSocket() {
     ; Start Services ;
     ;---------------*/
     try {
-        // Services
+        /* Data Feed Test */
+        // TODO: Do a null check on the telemetry.
+        let response;
+        try {
+            // Send the request.
+            response = await utils.dataFeedTest(EXCHANGE);
+            if(!response){
+                // Failure
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('FALSE')
+                });
+
+                // Let telemetry know we have data feed issues.
+                TelemetryObject.dataFeedState = 'offline';
+            }else{
+                // Success
+                log.debug({
+                    context: CONTEXT,
+                    verbosity: 7,
+                    message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('TRUE')
+                });
+                // Let telemetry know we are good to go.
+                TelemetryObject.dataFeedState = 'online';
+            }
+        } catch (failure) {
+            // On Failure
+            log.error({
+                context: CONTEXT,
+                message: ('Failed to complete dataFeed TEST request.')
+            });
+
+            // Do NOT throw any errors here. No need to kill the server.
+        }
+
+        /* Services */
 
         // Example interval API: runInterval(skip, interval, callback)
         // skip       : Skip that many minutes.

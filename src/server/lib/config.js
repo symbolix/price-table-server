@@ -55,6 +55,7 @@ var resources = {
         xrp: 4
     },
     EXCHANGE: 'kraken',
+    USE_MOCK_DATA_FEED: true,
     DEBUG_DATA_FEED_STATUS: false,
     SILENT: false,
     STATE_CACHE_FILE: getStateCacheFilePath(),

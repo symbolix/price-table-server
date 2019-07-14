@@ -34,7 +34,7 @@ function SocketLayer(data, name, version) {
             storage.feedback.diagnostics.flags.isDataFeedActive = value;
         },
         set dataFeed(value){
-            storage.feedback.diagnostics.states = value;
+            storage.feedback.diagnostics.states.dataFeed = value;
         },
         set payload(value){
             storage.payload = value;

@@ -18,9 +18,11 @@ const { red, green } = require ('ansicolor');
 const logging = require('./logging');
 const mockdata = require('./mock-data');
 const config = require('./config');
+const globals = require('./globals');
 const { MockExchangeError, FileStreamError } = require('./errors');
 
 var MODULE = 'utils';
+var USE_MOCK_DATA_FEED = globals.get('USE_MOCK_DATA_FEED');
 
 // The configuration for fractions formatting.
 // For example:
@@ -573,7 +575,31 @@ function generatePayload(dataObj, pair){
 }
 // }}}1
 
-/** @public sendExchangeRequest(id, pair, symbols) {{{1
+/** @public async dataFeedTest(id) {{{1
+ *
+ * A test function that gets the server time in order to check the connectivity.
+ * The _id_ parameter is the exchange id.
+ *
+ * @params {String} id
+ */
+
+async function dataFeedTest(id){
+    // Exchange
+    const exchange = new ccxt[id]();
+
+    let response;
+
+    // Actual Request
+    try {
+        response = await exchange.fetchTicker('btc');
+    }catch(err){
+        response = false;
+    }
+    return response;
+}
+//}}}1
+
+/** @public async sendExchangeRequest(id, pair, symbols) {{{1
  *
  * A wrapper for the exchange request. The _id_ parameter is the exchange id.
  * The _pair_ parameter is a fiat pair (any of the USD, EUR etc. pairs).
@@ -635,11 +661,8 @@ async function sendExchangeRequest(id, pair, symbols){
             // await delay(9000);
             // (TEST): end
 
-            // Actual Request
-            const ticker = await exchange.fetchTicker(symbol);
-
-            // Mock Request
-            // const ticker = await mockdata.fetchTicker(symbol);
+            // Switch between an actual or a mock data request.
+            const ticker = USE_MOCK_DATA_FEED ? await mockdata.fetchTicker(symbol) : await mockdata.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,
@@ -1048,6 +1071,7 @@ function consolidateStateCacheValidators(validators) {
 /* EXPORTS */
 module.exports = {
     moduleTest: moduleTest,
+    dataFeedTest: dataFeedTest,
     writeState: writeState,
     readState: readState,
     getAge: getAge,

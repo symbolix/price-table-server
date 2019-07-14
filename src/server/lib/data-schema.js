@@ -117,10 +117,21 @@ var webSocketTemplate = {
 };
 //}}}2
 
+/** diagnosticsTemplate {{{2
+ * Template for the DIAGNOSTICS layer.
+ * {Boolean}    isDataFeedActive true/false
+ * {String}     dataFeedState "online" | "degraded" | "offline"
+ */
+var diagnosticsTemplate = {
+    isDataFeedActive: null,
+    dataFeedState: 'offline'
+};
+
 module.exports = {
     webSocketTemplate: webSocketTemplate,
     restApiTemplate: restApiTemplate,
     dataTemplate: dataTemplate,
+    diagnosticsTemplate: diagnosticsTemplate
 };
 
 // vim: fdm=marker ts=4
