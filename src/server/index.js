@@ -19,6 +19,7 @@ const tables = require('./lib/tables');
 const schema = require('./lib/data-schema.js');
 const timers = require('./lib/timers.js');
 const assetRoutes = require('./lib/api/routes/assetRoutes');
+const sockets = require('./lib/socket/socketObject');
 
 // Symbols {{{1
 const SYMBOLS = [
@@ -47,7 +48,6 @@ const ASSETS = config.get('ASSETS').map(asset => asset.toUpperCase());
 // Globals
 const APP_NAME = globals.get('APP_NAME');
 const APP_VERSION = globals.get('APP_VERSION');
-const WEBSOCKETS_IS_ACTIVE = false;
 const STATE_CACHE_FILE = config.get('STATE_CACHE_FILE');
 
 // Intro
@@ -60,6 +60,9 @@ const log = logging.getLogger();
 
 // Interval
 let requestInterval = new timers.Interval('request');
+
+// Socket Layer
+let SocketObject = new sockets.Layer(schema.webSocketTemplate, APP_NAME, APP_VERSION);
 
 /*--------------------;
  ; Server Application ;
@@ -711,13 +714,11 @@ const update = async () => {
             });
         }
 
-        if(WEBSOCKETS_IS_ACTIVE){
-            // Prepare the payload.
-            let payload = utils.generatePayload(data.exportState());
+        // Prepare the payload.
+        // let payload = utils.generatePayload(data.exportState());
 
-            // Call the emission hook within the web-socket loop.
-            activeWebSocketEmission(payload);
-        }
+        // Call the emission hook within the web-socket loop.
+        activeWebSocketEmission( {signal: 'ready', dataFeed:  'online'} );
 
         // Success Label
         log.label({
@@ -772,7 +773,7 @@ const initExpress = (() => {
     log.info({
         context: CONTEXT,
         verbosity: 3,
-        message: ('Starting REST API server.')
+        message: (`Starting REST API server on port: ${PORT}`)
     });
 
     // Custom exception handler.
@@ -823,99 +824,114 @@ function initWebSocket() {
     // Default message.
     const CONTEXT = 'initWebSocket';
 
-    var wss = new WebSocketServer({ port: 9000 });
+    const PORT = 9000;
+    var wss = new WebSocketServer({ port: PORT });
 
     log.info({
         context: CONTEXT,
         verbosity: 3,
-        message: ('Starting websocket server.')
+        message: (`Starting WEBSOCKETS server on port: ${PORT}`)
     });
 
-    var dataSchema = schema.webSocketTemplate;
-    const message = {
-        serverAppName: 'Price Table Server',
-        serverVersion: APP_VERSION,
+    // Message Defaults
+    SocketObject.message = {
+        event: null,
+        contents: null
     };
 
-    dataSchema['message'] = message;
+    // ON MESSAGE {{{2
+    wss.on('message', (message) => {
+        let incomingTransmission = JSON.parse(message);
+        console.log('[server:onConnection:onMessage] ***[BEGIN]***');
 
-    // This needs to be in the message section (onMessage) is still an option as we
-    // might need to send an input from the client.
-    wss.on('connection', function(ws) {
-        /*-------------------------------------------------------------------;
-         ; This section runs only on a 'message received from client' event. ;
-         -------------------------------------------------------------------*/
-        // on.message {{{2
-        ws.on('message', (message) => {
-            let incomingTransmission = JSON.parse(message);
-            console.log('[server:onConnection:onMessage]');
-
-            // Handle the requests from the client.
-            dataSchema.records.clientInput = incomingTransmission;
-
-            // Update the communication record to indicate that the client has sent
-            // the server some information.
-            dataSchema.flags.hasClientInput = true;
-            dataSchema.flags.isFirstTransmission = false;
-
-            // Insert the payload.
-            dataSchema.package = utils.generatePayload(data.exportState());
-
-            // Sending the payload to all clients.
-            wss.clients.forEach((client) => {
-                // Prepare for transmission.
-                let transmission = JSON.stringify(dataSchema);
-
-                // Debug
-                console.log('[server:onConnection:onMessage]');
-
-                // Send the transmission.
-                client.send(transmission);
-            });
-        });
-        //}}}2
-        // Plug the ACTIVE emission hook. {{{2
-        activeWebSocketEmitter = function(input) {
-            // Debug the input data stream.
-            // console.log('INPUT_STREAM:', input);
-
-            // Insert the payload.
-            dataSchema.package = input;
-
-            // Then update the carrier.
-            dataSchema.records.serverUpdate = true;
-            dataSchema.records.clientInput = null;
-            dataSchema.records.feedActive = globals.get('DATA_FEED_IS_ACTIVE');
-            dataSchema.flags.isFirstTransmission = false;
-            dataSchema.flags.hasClientInput = false;
-
-            // Sending the payload to all clients.
-            wss.clients.forEach((client) => {
-                // Prepare for transmission.
-                let transmission = JSON.stringify(dataSchema);
-
-                // Debug
-                // console.log('[server:onConnection:onUpdate] Sending:\n', transmission);
-                console.log('[server:onConnection:onUpdate]');
-
-                // Send the transmission.
-                client.send(transmission);
-
-                // Reser flag.
-                dataSchema.records.server_update = false;
-            });
+        // Handle the requests from the client.
+        SocketObject.message = {
+            event: 'onMessage',
+            contents: 'RECEIVED_REQUEST_FROM_CLIENT'
         };
-        //}}}2
-        /*-------------------------------------------------;
-        ; This section runs only once at first connection. ;
-        ;-------------------------------------------------*/
-        // Data schema updates.
-        dataSchema.flags.isFirstTransmission = true;
+
+        SocketObject.clientInput = incomingTransmission;
+        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+
+        // Insert the payload.
+        SocketObject.payload = { signal: 'ready' };
+        SocketObject.dataFeed = { dataFeed: 'online' };
 
         // Sending the payload to all clients.
         wss.clients.forEach((client) => {
             // Prepare for transmission.
-            let transmission = JSON.stringify(dataSchema);
+            let transmission = JSON.stringify(SocketObject.query());
+
+            // Debug
+            console.log('[server:onConnection:onMessage] \t__SEND__(_start)__');
+
+            // Send the transmission.
+            client.send(transmission);
+
+            // Debug
+            console.log('[server:onConnection:onMessage] \t__SEND__(finish)__');
+            console.log('[server:onConnection:onMessage] ***[END__]***');
+        });
+    });
+    //}}}2
+
+    // Plug the ACTIVE emission hook. {{{2
+    activeWebSocketEmitter = (input) => {
+        // Debug the input data stream.
+        console.log('INPUT_STREAM:', input);
+
+        // Data schema updates.
+        SocketObject.message = {
+            event: 'onUpdate',
+            contents: 'DATA_FEED_READY_SIGNAL_BROADCASTED'
+        };
+
+        // Insert the payload.
+        SocketObject.payload = input.signal;
+        SocketObject.dataFeed = input.dataFeed;
+
+        // Then update the carrier.
+        SocketObject.clientInput = null;
+        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+
+        // Sending the payload to all clients.
+        wss.clients.forEach((client) => {
+            // Prepare for transmission.
+            let transmission = JSON.stringify(SocketObject.query());
+
+            // Debug
+            console.log('[server:onConnection:onUpdate]');
+
+            // Send the transmission.
+            client.send(transmission);
+        });
+    };
+    //}}}2
+
+    // ON CONNECTION {{{2
+    // This needs to be in the message section (onMessage) is still an option as we
+    // might need to send an input from the client.
+    wss.on('connection', () => {
+        /*-------------------------------------------------;
+        ; This section runs only once at first connection. ;
+        ;-------------------------------------------------*/
+
+        // Data schema updates.
+        SocketObject.message = {
+            event: 'onConnection',
+            contents: 'STREAM_INITIALIZED'
+        };
+
+        // Insert the payload.
+        SocketObject.payload = { signal: 'ready' };
+        SocketObject.dataFeed = { dataFeed: 'online' };
+
+        SocketObject.isDataFeedActive = globals.get('DATA_FEED_IS_ACTIVE');
+
+        // Sending the payload to all clients.
+        wss.clients.forEach((client) => {
+            // Prepare for transmission.
+            let transmission = JSON.stringify(SocketObject.query());
 
             // Debug
             // console.log('[server:onConnection:init] Sending:\n', transmission);
@@ -925,6 +941,7 @@ function initWebSocket() {
             client.send(transmission);
         });
     });
+    //}}}2
 }
 //}}}1
 
@@ -1225,7 +1242,7 @@ function initWebSocket() {
         requestInterval.runInterval(1, 0, function() {
             update();
         });
-        //initWebSocket();
+        initWebSocket();
         initExpress();
     } catch(err) {
         log.severe({

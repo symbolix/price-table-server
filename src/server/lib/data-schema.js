@@ -79,23 +79,38 @@ var restApiTemplate = {
 
 /** webSocketTemplate {{{2
  * Template for the WEBSOCKETS carrier.
+ * *
  * payload: The payload.
  */
 var webSocketTemplate = {
     info: {
-        version: {
-            schema: 'websocket-v0.0.1.[2]',
-            api: 'websocket-V1.01'
+        api: {
+            version: 'websocket-v0.0.1.[2]'
+        },
+        server: {
+            name: null,
+            version: null
         }
     },
-    message: null,
+    message: {
+        event: null,
+        contents: null
+    },
     feedback: {
         records: {
+            clientInput: null,
             requestId: null,
             requestTimestamp: []
         },
         diagnostics: {
-            flags: {}
+            flags: {
+                hasClientInput: null,
+                isFirstTransmission: null,
+                isDataFeedActive: null
+            },
+            states: {
+                dataFeed: null
+            }
         }
     },
     payload: {}
