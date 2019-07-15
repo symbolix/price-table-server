@@ -22,7 +22,7 @@ const globals = require('./globals');
 const { MockExchangeError, FileStreamError } = require('./errors');
 
 var MODULE = 'utils';
-var USE_MOCK_DATA_FEED = globals.get('USE_MOCK_DATA_FEED');
+var USE_MOCK_DATA_FEED = config.get('USE_MOCK_DATA_FEED');
 
 // The configuration for fractions formatting.
 // For example:
@@ -591,9 +591,10 @@ async function dataFeedTest(id){
 
     // Actual Request
     try {
-        response = await exchange.fetchTicker('btc');
+        response = await exchange.fetchTicker('BTC/USD');
     }catch(err){
         response = false;
+        console.log(err);
     }
     return response;
 }
@@ -662,7 +663,7 @@ async function sendExchangeRequest(id, pair, symbols){
             // (TEST): end
 
             // Switch between an actual or a mock data request.
-            const ticker = USE_MOCK_DATA_FEED ? await mockdata.fetchTicker(symbol) : await mockdata.fetchTicker(symbol);
+            const ticker = USE_MOCK_DATA_FEED ? await mockdata.fetchTicker(symbol) : await exchange.fetchTicker(symbol);
 
             log.info({
                 context: CONTEXT,

@@ -210,7 +210,7 @@ function logger(){
          * verbosity depth. */
         // Colour override is not allowed here!
         colour = red;
-        logging.configure({ tag: { level: 'error', context: context, verbosity: '___' } })(colour(message));
+        logging.configure({ tag: { level: 'error', context: context, verbosity: 'err' } })(colour(message));
     };
     //}}}2
 
@@ -220,7 +220,7 @@ function logger(){
          * verbosity depth. */
         // Colour override is not allowed here!
         colour = bgRed;
-        logging.configure({ tag: { level: 'severe', context: context, verbosity: '___' } })(colour(message));
+        logging.configure({ tag: { level: 'severe', context: context, verbosity: 'err' } })(colour(message));
     };
     //}}}2
 
