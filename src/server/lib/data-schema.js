@@ -59,18 +59,30 @@ let dataTemplate = {
  */
 var restApiTemplate = {
     info: {
-        version: {
+        api: {
             schema: 'rest-v0.0.1.[3]',
-            api: 'rest-V1.01'
+            version: 'rest-V1.01'
+        },
+        server: {
+            name: null,
+            version: null
         }
     },
     feedback: {
         records: {
+            clientInput: null,
             requestId: null,
             requestTimestamp: []
         },
         diagnostics: {
-            flags: {}
+            flags: {
+                hasClientInput: null,
+                isFirstTransmission: null,
+                isDataFeedActive: null
+            },
+            states: {
+                dataFeed: null
+            }
         }
     },
     payload: {}
@@ -85,7 +97,8 @@ var restApiTemplate = {
 var webSocketTemplate = {
     info: {
         api: {
-            version: 'websocket-v0.0.1.[2]'
+            schema: 'websocket-v0.0.1.[2]',
+            version: 'socket-V1.01'
         },
         server: {
             name: null,

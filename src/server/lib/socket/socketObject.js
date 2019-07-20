@@ -51,7 +51,6 @@ function SocketLayer(data, name, version) {
             }
 
             // Handle the 'hasClientInput' flag.
-            console.log('---', storage.feedback.records.clientInput, '---');
             if(storage.feedback.records.clientInput === null || storage.feedback.records.clientInput === ''){
                 storage.feedback.diagnostics.flags.hasClientInput = false;
             }else{

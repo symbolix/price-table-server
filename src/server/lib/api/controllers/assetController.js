@@ -22,13 +22,18 @@ var MODULE = 'rest.controller';
 const utils = require('../../utils');
 const data = require('../../data-container');
 const schema = require('../../data-schema');
+const globals = require('../../globals');
+
+// Globals
+const APP_NAME = globals.get('APP_NAME');
+const APP_VERSION = globals.get('APP_VERSION');
 
 // Logging
 const log = logging.getLogger();
 
-// Model Init
+// Initialize the asset model.
 let PayloadModel = AssetModel.Payload();
-PayloadModel.init(schema.restApiTemplate);
+PayloadModel.init(schema.restApiTemplate, APP_NAME, APP_VERSION);
 
 // Wrap the PayloadModel as a Payload.
 const Payload = (() => {
@@ -78,7 +83,6 @@ const Payload = (() => {
         getSingleAsset: (pair, symbol, callback) => {
             let error, response, state;
             const CONTEXT = MODULE + '.' + 'querySingleAsset';
-
 
             // Soft-error Handling
             try {

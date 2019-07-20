@@ -1,7 +1,7 @@
 /*
     TODO:
-        * Fix the globals.get('DATA_FEED_IS_ACTIVE') and globals.set('DATA_FEED_IS_ACTIVE') functionality.
-        * Properly implement the dataFeed states: online, offline, degraded.
+        * (DONE) Fix the globals.get('DATA_FEED_IS_ACTIVE') and globals.set('DATA_FEED_IS_ACTIVE') functionality.
+        * (DONE) Properly implement the dataFeed states: online, offline, degraded.
         * Implement the UUID functionality.
 */
 
@@ -10,8 +10,6 @@
 // Project Imports
 const { cyan, white, red, green, yellow, blue } = require ('ansicolor');
 const { table } = require('table');
-
-// A simple server-side script that serves a JSON object.
 var WebSocketServer = require('ws').Server;
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -47,7 +45,7 @@ const SYMBOLS = [
 // Pairs
 const PAIRS = config.get('PAIRS').map(pair => pair.toUpperCase());
 
-// Exchnges
+// Exchange
 const EXCHANGE = config.get('EXCHANGE');
 
 // Assets
@@ -77,11 +75,14 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
  ; Server Application ;
  ;--------------------*/
 
-/** public generatePairAssetContainer(pairs, assets) {{{1
+/** @public generatePairAssetContainer(pairs, assets) {{{1
+ *
  *  This is an async fetch call wrapping the cached date request.
+ *
  *  @param {array} pairs - An array with the first set of keys.
  *  @param {array} assets - An array with the sub-set of keys.
  */
+
 const serializeLists = (primary, secondary) => {
     let container = {};
 
@@ -97,8 +98,10 @@ const serializeLists = (primary, secondary) => {
 };
 // }}}1
 
-/** public async fetchCachedData(filepath) {{{1
+/** @public async fetchCachedData(filepath) {{{1
+ *
  *  This is an async fetch call wrapping the cached date request.
+ *
  *  @param {string} filepath - Path to the cache file.
  */
 const fetchCachedData = async (filepath) => {
@@ -144,16 +147,21 @@ const fetchCachedData = async (filepath) => {
 };
 //}}}1
 
-// @public async fetchExchangeData(id, pair, symbols, passThrough) {{{1
-//
-//  ARGS:
-//      id: The exchange id
-//      pair: A fiat pair code
-//      symbols: An array of asset ticker symbols
-//      passThrough: Boolean, allows partial data to be returned
-//  INFO:
-//      This is an async fetch call wrapping the exchange request.
-//
+/** @public async fetchExchangeData(id, pair, symbols, passThrough) {{{1
+ *
+ * This is an async fetch call wrapping the exchange request. The _id_ is the exchange id
+ * as a string. The _pair_ argument is the fiat pair identifier. The _symbols_
+ * argument is an array of asset symbols. The _passThrough_ parameter is
+ * a boolean that controls if we are strict or not strict about returning valid
+ * data.
+ *
+ * @param {String} id
+ * @param {String} pair
+ * @param {Array} symbols
+ * @param {Boolean} passThrough
+ *
+ */
+
 const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
     const CONTEXT = 'fetchExchangeData';
     let response = false;
@@ -164,14 +172,18 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
 
         if(!response){
             // In case the response is silent.
+            TelemetryObject.dataFeedState = 'offline';
+
             log.debug({
                 context: CONTEXT,
                 verbosity: 7,
                 message: 'FETCH_REQUEST_STATUS: {0}'.stringFormatter('FALSE')
             });
         }else{
-            // There is a response, but might be partial.
             if(!response.signature.success){
+                // There is a response, but might be partial.
+                TelemetryObject.dataFeedState = 'degraded';
+
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
@@ -193,6 +205,9 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
                     response = false;
                 }
             }else{
+                // The response is good.
+                TelemetryObject.dataFeedState = 'online';
+
                 log.debug({
                     context: CONTEXT,
                     verbosity: 7,
@@ -217,13 +232,16 @@ const fetchExchangeData = async (id, pair, symbols, { passThrough=false }) => {
 };
 //}}}1
 
-// @public async sendExchangeData(filepath, data) {{{1
-//
-//  ARGS:
-//      filepath: Path to the JSON cache file.
-//  INFO:
-//      This is a promise wrapper for the send cache request.
-//
+/** @public async sendExchangeData(filepath, data) {{{1
+ *
+ * This is a promise wrapper for the send-cache request. Expects a _filepath_
+ * argument for the name of the file that will be used to store the JSON cache
+ * and a _data_ argument which is the JSON data object.
+ *
+ * @param {String} filepath
+ * @param {Object} data
+ */
+
 async function sendExchangeData(filepath, data) {
     const CONTEXT = 'sendExchangeData';
     let response;
@@ -263,12 +281,17 @@ async function sendExchangeData(filepath, data) {
 }
 // }}}1
 
-/** public async getStateCache(filepath, { retryLimit }) {{{1
- * This is a wrapped async call with a fetch.
+/** @public async getStateCache(filepath, { retryLimit }) {{{1
+ *
+ * This is a wrapped async call with a fetch. The _filepath_ argument is the file location for
+ * the state cache file. The _allowPartial_ parameter is a boolean used to allow partial responses
+ * and will not enforce any retries.
  * (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)
- * @param {string} filepath     : File location for the state cache file.
- * @param {boolean} allowPartial: Boolean, will allow partial responses and will not enforce a retry operation.
+ *
+ * @param {string} filepath
+ * @param {boolean} allowPartial:
  */
+
 const getStateCache = async (filepath, { retryLimit = true }) => {
 
     // Initialise
@@ -366,15 +389,20 @@ const getStateCache = async (filepath, { retryLimit = true }) => {
 };
 //}}}1
 
-/** public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
- * This is a wrapped async call with a fetch.
- * (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)@param {} id: The exchange id
- * @param {string} pair A fiat pair code.
- * @param {array} symbols An array of asset ticker symbols.
- * @param {intiger} retryLimit Number of the possible retry attempts.
- * @param {boolean} allowPartial Boolean, will allow partial responses and will not
- *      enforce a retry operation.
+/** @public async getExchangeData(id, pair, symbols, retryLimit, allowPartial) {{{1
+ *
+ * This is a wrapped async call with a fetch. The _id_ is the exchange id string.
+ * The _pair_ argument is a fiat pair code. The _symbols_ is an array of asset ticker symbols.
+ * The _retryLimit_ is the number of the possible retry attempts. The _allowPartial_ boolean will
+ * allow partial responses and will not enforce a retry operation if 'true'.
+ * (https://dev.to/ycmjason/javascript-fetch-retry-upon-failure-3p6g)
+ *
+ * @param {String} id
+ * @param {Array} pair
+ * @param {Intiger} retryLimit
+ * @param {Boolean} allowPartial
  */
+
 const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPartial = false }) => {
 
     // Initialise
@@ -419,6 +447,8 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
                     success = true;
 
                     // Complete Success
+                    TelemetryObject.dataFeedState = 'online';
+
                     log.debug({
                         context: CONTEXT,
                         verbosity: 7,
@@ -436,7 +466,9 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
                     // Status Flag
                     success = allowPartial ? true : false;
 
-                    // Partial Success, Soft Failure
+                    // Partial Succes / Soft Failure
+                    TelemetryObject.dataFeedState = 'degraded';
+
                     log.debug({
                         context: CONTEXT,
                         message: 'EXCHANGE_REQUEST_STATUS: {0}'.stringFormatter('INCOMPLETE')
@@ -452,6 +484,9 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
             }else{
                 // Status Flag
                 success = false;
+
+                // No Success
+                TelemetryObject.dataFeedState = 'offline';
 
                 // Error Label
                 log.label({
@@ -480,6 +515,7 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
             }
         } catch (failure) {
             // On Failure:
+            TelemetryObject.dataFeedState = 'offline';
 
             log.error({
                 context: CONTEXT,
@@ -494,15 +530,17 @@ const getExchangeData = async (id, pair, symbols, { retryLimit = 1 }, { allowPar
 };
 //}}}1
 
-// @public async exportExchangeData(filepath, stateData, retryLimit) {{{1
-//
-//  ARGS:
-//      filepath    : Path to the JSON cache file
-//      stateData   : Data object
-//      retryLimit  : Number of the possible retry attempts
-//  INFO:
-//      This is a wrapped async call with a send.
-//
+/** @public async exportExchangeData(filepath, stateData, retryLimit) {{{1
+ *
+ * This is a wrapper for the 'sendExchangeData' async call. The _filepath_ parameter is the path
+ * to the JSON cache file. The _stateData_ argument is the data object. The _retryLimit_ is the number
+ * of the possible retry attempts.
+ *
+ * @param {String} filepath
+ * @param {Object} stateData
+ * @param {Intiger} retryLimit
+ */
+
 const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 
     // Initialise
@@ -590,7 +628,11 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 };
 //}}}1
 
-// Update {{{1
+/** @public update() {{{1
+ *
+ * A request wrapper that is designed to run at each interval.
+ */
+
 const update = async () => {
     // Start request state.
     requestInterval.setState('isRequestActive', true);
@@ -689,6 +731,7 @@ const update = async () => {
                 );
 
                 // Accumulate the validators here.
+                // Basically create an array of states: [true, true, true, false, true ...]
                 Object.keys(exchangeData['assets']).forEach((a) => validators.push(exchangeData['assets'][a]['success']));
 
                 // Update the data container. Propagate only the assets with a success flag.
@@ -718,9 +761,9 @@ const update = async () => {
             TelemetryObject.dataFeedState = 'online';
         } else {
             if (consolidatedValidators == 0) {
-                TelemetryObject.dataFeedState = 'degraded';
-            } else {
                 TelemetryObject.dataFeedState = 'offline';
+            } else {
+                TelemetryObject.dataFeedState = 'degraded';
             }
         }
 
@@ -747,11 +790,8 @@ const update = async () => {
             });
         }
 
-        // Prepare the payload.
-        // let payload = utils.generatePayload(data.exportState());
-
         // Call the emission hook within the web-socket loop.
-        activeWebSocketEmission( {signal: true, dataFeed:  'online'} );
+        activeWebSocketEmission( {signal: true, dataFeed:  TelemetryObject.query('dataFeedState')} );
 
         // Success Label
         log.label({
@@ -768,7 +808,7 @@ const update = async () => {
         });
 
         // Let the service know about the data feed failure.
-        globals.set('DATA_FEED_IS_ACTIVE', false);
+        TelemetryObject.dataFeedState = 'offline';
 
         log.severe({
             context: CONTEXT,
@@ -781,12 +821,18 @@ const update = async () => {
 };
 // }}}1
 
-// Define Active WebSocket Emission Hook {{{1
+/** @public activeWebSocketEmitter() {{{1
+ * Defines an active WebSocket emission hook.
+ */
+
 var activeWebSocketEmitter = function() {};
-//
 // }}}1
 
-// Define a hook for the active websocket emission point. {{{1
+/** @public activeWebSocketEmission() {{{1
+ *
+ * Define an entry point for the active websocket emission hook.
+ */
+
 var activeWebSocketEmission = function(input) {
     activeWebSocketEmitter(input);
 };
@@ -795,9 +841,14 @@ var activeWebSocketEmission = function(input) {
 /*------------------------------;
  ; Initialize Server Components ;
  ------------------------------*/
-// initExpress() {{{1
-// To test in terminal: curl -v http://localhost:9001/assets/eur | jq
+
+/** @public initExpress() {{{1
+ *
+ * Initialize the Express.js setup.
+ */
+
 const initExpress = (() => {
+    // To test in terminal: curl -v http://localhost:9001/assets/eur | jq
     const CONTEXT = 'initExpress';
 
     const app = express();
@@ -850,9 +901,13 @@ const initExpress = (() => {
         })
     );
 });
-// }}}1
+//}}}1
 
-// initWebSocket() {{{1
+/** @public initWebSocket() {{{1
+ *
+ * Initialize the WS setup.
+ */
+
 function initWebSocket() {
     // Default message.
     const CONTEXT = 'initWebSocket';
@@ -873,6 +928,9 @@ function initWebSocket() {
     };
 
     // ON MESSAGE {{{2
+    // THIS NEEDS TO BE WRAPPED SO THAT WE GET A REPLY FOR INDIVIDUAL CLIENTS.
+    // RIGHT NOW, ANY MESSAGES THAT HAS THE AIM TO INFLUENCE THE SERVER WILL
+    // CHANGE THE SERVER STATE FOR ALL USERS?
     wss.on('message', (message) => {
         let incomingTransmission = JSON.parse(message);
         console.log('[server:onConnection:onMessage] ***[BEGIN]***');
@@ -921,13 +979,15 @@ function initWebSocket() {
 
         // Insert the payload.
         SocketObject.payload = input.signal;
-        SocketObject.dataFeed = input.dataFeed;
 
         // Then update the carrier.
         SocketObject.clientInput = null;
+        SocketObject.dataFeed = input.dataFeed;
         SocketObject.isDataFeedActive = TelemetryObject.query('isDataFeedActive');
 
         // Sending the payload to all clients.
+        // Once we have an updated data set, let's signal to all the clients so
+        // that they poll the fresh data.
         wss.clients.forEach((client) => {
             // Prepare for transmission.
             let transmission = JSON.stringify(SocketObject.query());
@@ -942,12 +1002,11 @@ function initWebSocket() {
     //}}}2
 
     // ON CONNECTION {{{2
-    // This needs to be in the message section (onMessage) is still an option as we
-    // might need to send an input from the client.
-    wss.on('connection', () => {
+    wss.on('connection', (ws) => {
         /*-------------------------------------------------;
         ; This section runs only once at first connection. ;
         ;-------------------------------------------------*/
+        console.log('[server:onConnection:init]');
 
         // Data schema updates.
         SocketObject.message = {
@@ -958,20 +1017,13 @@ function initWebSocket() {
         // Insert the payload.
         SocketObject.payload = { signal: true };
         SocketObject.dataFeed = TelemetryObject.query('dataFeedState');
-
         SocketObject.isDataFeedActive = TelemetryObject.query('isDataFeedActive');
 
+        // Bundle the transmission.
+        let transmission = JSON.stringify(SocketObject.query());
+
         // Sending the payload to all clients.
-        wss.clients.forEach((client) => {
-            // Prepare for transmission.
-            let transmission = JSON.stringify(SocketObject.query());
-
-            // Debug
-            console.log('[server:onConnection:init]');
-
-            // Send the transmission.
-            client.send(transmission);
-        });
+        ws.send(transmission);
     });
     //}}}2
 }

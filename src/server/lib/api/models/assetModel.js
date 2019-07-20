@@ -9,7 +9,7 @@
 'use strict';
 
 // Project Imports
-// None
+const uuidv1 = require('uuid/v1');
 
 var MODULE = 'rest.model';
 
@@ -20,6 +20,8 @@ var MODULE = 'rest.model';
  */
 
 function Payload() {
+
+    // Internal Storage
     this.storage = {};
 
     let publicMethods = {
@@ -43,7 +45,7 @@ function Payload() {
 
         queryAll: () => {
             this.storage.feedback.records.requestTimestamp = [new Date(), new Date().getTime()];
-            this.storage.feedback.records.requestId = '6c0b2cfe-914a-4d7d-82e3-66e73d84a9a9';
+            this.storage.feedback.records.requestId = uuidv1();
             return this.storage;
         },
         //}}}2
@@ -57,13 +59,22 @@ function Payload() {
 
         querySingle: (symbol) => {
             this.storage.feedback.records.requestTimestamp = [new Date(), new Date().getTime()];
-            this.storage.feedback.records.requestId = '6c0b2cfe-914a-4d7d-82e3-66e73d84a9a9';
-
+            this.storage.feedback.records.requestId = uuidv1();
 
             if(!this.storage.payload.assets.hasOwnProperty(symbol)){
                 throw new Error('Invalid request for asset symbol [' + symbol.toUpperCase() + '] received!');
             }else{
-                return this.storage.payload.assets[symbol];
+                // We are effectively destroying the stored data here.
+                // However, we rely on the fact that in the 'assetController'
+                // section, the internal state is always reconstructed prior to
+                // calling this function. In that way, we can avoid deep
+                // copying the storage in order to return a single asset.
+                let getPair = this.storage.payload.pair;
+                this.storage.payload = {
+                    pair: getPair,
+                    asset: this.storage.payload.assets[symbol]
+                };
+                return this.storage;
             }
         },
         //}}}2
@@ -75,8 +86,10 @@ function Payload() {
          * @param {Object} template
          */
 
-        init: (template) => {
+        init: (template, name, version) => {
             this.storage = template;
+            this.storage.info.server.name = name;
+            this.storage.info.server.version = version;
         }
         //}}}2
     };
