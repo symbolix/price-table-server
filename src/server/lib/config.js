@@ -55,6 +55,8 @@ var resources = {
         xrp: 4
     },
     EXCHANGE: 'kraken',
+    SOCKET_SERVER_PORT: 9000,
+    REST_SERVER_PORT: 9001,
     USE_MOCK_DATA_FEED: false,
     DEBUG_DATA_FEED_STATUS: false,
     SILENT: false,
