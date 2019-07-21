@@ -1,9 +1,10 @@
-/*
-    TODO:
-        * (DONE) Fix the globals.get('DATA_FEED_IS_ACTIVE') and globals.set('DATA_FEED_IS_ACTIVE') functionality.
-        * (DONE) Properly implement the dataFeed states: online, offline, degraded.
-        * Implement the UUID functionality.
-*/
+/*!
+ * Price Table Server
+ * Copyright(c) 2018 Milen Bilyanov
+ * Copyright(c) 2017-2019 tradekit.io
+ *
+ * MIT Licensed
+ */
 
 'use strict';
 

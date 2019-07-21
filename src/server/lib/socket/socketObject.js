@@ -9,7 +9,7 @@
 'use strict';
 
 // Project Imports
-// None
+const uuidv1 = require('uuid/v1');
 
 var MODULE = 'socketObject';
 
@@ -22,6 +22,8 @@ var MODULE = 'socketObject';
 function SocketLayer(data, name, version) {
     // Internal Storage
     let storage = data;
+
+    // Handle initialization.
     storage.info.server.name = name;
     storage.info.server.version = version;
 
@@ -59,7 +61,7 @@ function SocketLayer(data, name, version) {
 
             // Handle auto fields.
             storage.feedback.records.requestTimestamp = [new Date(), new Date().getTime()];
-            storage.feedback.records.requestId = 'b1f005d3-0ae1-41c9-8727-eeb3b1858112';
+            storage.feedback.records.requestId = uuidv1();;
 
             // Return data container.
             return storage;
