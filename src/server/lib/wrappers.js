@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 
 'use strict';
@@ -13,6 +14,8 @@ const { cyan, white, red, green, yellow, blue } = require ('ansicolor');
 const { table } = require('table');
 const express = require('express');
 const bodyParser = require('body-parser');
+var helmet = require('helmet');
+var compression = require('compression');
 var WebSocketServer = require('ws').Server;
 
 // Local Imports
@@ -733,6 +736,11 @@ const update = async (pairs, exchange, symbols, stateCacheFile) => {
             }
         }
 
+        // The data container should be intact at this stage.
+        if(!TelemetryObject.query('isDataContainerReady')){
+            TelemetryObject.isDataContainerReady = true;
+        }
+
         // Cache the updated data container.
         try {
             log.info({
@@ -756,8 +764,11 @@ const update = async (pairs, exchange, symbols, stateCacheFile) => {
             });
         }
 
-        // Call the emission hook within the web-socket loop.
-        activeWebSocketEmission( {signal: true, dataFeed:  TelemetryObject.query('dataFeedState')} );
+        // Call the emission hook within the web-socket loop, only if the
+        // services are running.
+        if(TelemetryObject.query('areServicesRunning')){
+            activeWebSocketEmission( {signal: true, dataFeed:  TelemetryObject.query('dataFeedState')} );
+        }
 
         // Success Label
         log.label({
@@ -840,6 +851,8 @@ const startRestApi = ((port) => {
         }
     }
 
+    app.use(helmet());
+    app.use(compression());
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
 
@@ -892,8 +905,19 @@ function startWebSocket(port) {
     // RIGHT NOW, ANY MESSAGES THAT HAS THE AIM TO INFLUENCE THE SERVER WILL
     // CHANGE THE SERVER STATE FOR ALL USERS?
     wss.on('message', (message) => {
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'SOCKET_EVENT: {0}'.stringFormatter('ON_CONNECTION')
+        });
+
+        log.info({
+            context: CONTEXT,
+            verbosity: 3,
+            message: 'Message received from a client.'
+        });
+
         let incomingTransmission = JSON.parse(message);
-        console.log('[server:onConnection:onMessage] ***[BEGIN]***');
 
         // Handle the requests from the client.
         SocketObject.message = {
@@ -913,15 +937,8 @@ function startWebSocket(port) {
             // Prepare for transmission.
             let transmission = JSON.stringify(SocketObject.query());
 
-            // Debug
-            console.log('[server:onConnection:onMessage] \t__SEND__(_start)__');
-
             // Send the transmission.
             client.send(transmission);
-
-            // Debug
-            console.log('[server:onConnection:onMessage] \t__SEND__(finish)__');
-            console.log('[server:onConnection:onMessage] ***[END__]***');
         });
     });
     //}}}2
@@ -929,7 +946,17 @@ function startWebSocket(port) {
     // Plug the ACTIVE emission hook. {{{2
     activeWebSocketEmitter = (input) => {
         // Debug the input data stream.
-        console.log('INPUT_STREAM:', input);
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'SOCKET_EVENT: {0}'.stringFormatter('ON_EMISSION')
+        });
+
+        log.info({
+            context: CONTEXT,
+            verbosity: 3,
+            message: ('INPUT_STREAM: ' + input)
+        });
 
         // Data schema updates.
         SocketObject.message = {
@@ -938,7 +965,7 @@ function startWebSocket(port) {
         };
 
         // Insert the payload.
-        SocketObject.payload = input.signal;
+        SocketObject.payload = { signal: input.signal };
 
         // Then update the carrier.
         SocketObject.clientInput = null;
@@ -952,9 +979,6 @@ function startWebSocket(port) {
             // Prepare for transmission.
             let transmission = JSON.stringify(SocketObject.query());
 
-            // Debug
-            console.log('[server:onConnection:onUpdate]');
-
             // Send the transmission.
             client.send(transmission);
         });
@@ -966,7 +990,18 @@ function startWebSocket(port) {
         /*-------------------------------------------------;
         ; This section runs only once at first connection. ;
         ;-------------------------------------------------*/
-        console.log('[server:onConnection:init]');
+        log.debug({
+            context: CONTEXT,
+            verbosity: 7,
+            message: 'SOCKET_EVENT: {0}'.stringFormatter('ON_CONNECTION')
+        });
+
+        log.info({
+            context: CONTEXT,
+            verbosity: 3,
+            message: 'User connection initialized.'
+        });
+
 
         // Data schema updates.
         SocketObject.message = {

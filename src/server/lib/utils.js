@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 
 'use strict';
@@ -18,7 +19,6 @@ const { red, green } = require ('ansicolor');
 const logging = require('./logging');
 const mockdata = require('./mock-data');
 const config = require('./config');
-const globals = require('./globals');
 const { MockExchangeError, FileStreamError } = require('./errors');
 
 var MODULE = 'utils';

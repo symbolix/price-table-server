@@ -5,20 +5,13 @@
  *
  * MIT Licensed
  *
- * BUG: Previous data section is empty after the state cache file is
- *      regenerated at the very beginning, despite the fact that the REST and SOCKET
- *      servers are started.
- *
  */
 
 'use strict';
 
 // Project Imports
-const { cyan, white, red, green, yellow, blue } = require ('ansicolor');
+const { cyan, yellow } = require ('ansicolor');
 const { table } = require('table');
-// (DEPRECATED) var WebSocketServer = require('ws').Server;
-// (DEPRECATED) const express = require('express');
-// (DEPRECATED) const bodyParser = require('body-parser');
 
 // Local Imports
 const logging = require('./lib/logging');
@@ -26,11 +19,8 @@ const utils = require('./lib/utils');
 const data = require('./lib/data-container');
 const globals = require('./lib/globals');
 const config = require('./lib/config');
-// (DEPRECATED) const tables = require('./lib/tables');
 const schema = require('./lib/data-schema.js');
 const timers = require('./lib/timers.js');
-// (DEPRECATED) const assetRoutes = require('./lib/api/routes/assetRoutes');
-const socket = require('./lib/socket/socketObject');
 const telemetry = require('./lib/telemetry');
 const wrap = require('./lib/wrappers');
 
@@ -64,6 +54,8 @@ const APP_VERSION = globals.get('APP_VERSION');
 const STATE_CACHE_FILE = config.get('STATE_CACHE_FILE');
 const REST_PORT = config.get('REST_SERVER_PORT');
 const SOCKET_PORT = config.get('SOCKET_SERVER_PORT');
+const DATA_CONTAINER_WAIT_INTERVAL = config.get('DATA_CONTAINER_WAIT_INTERVAL');
+const DATA_REQUEST_INTERVAL = config.get('DATA_REQUEST_INTERVAL');
 
 // Intro
 !config.get('SILENT') && console.log(`\n${APP_NAME} ${APP_VERSION}`);
@@ -73,9 +65,6 @@ const log = logging.getLogger();
 
 // Interval
 let requestInterval = new timers.Interval('request');
-
-// Socket Layer
-let SocketObject = new socket.Layer(schema.webSocketTemplate, APP_NAME, APP_VERSION);
 
 // Telemetry Layer
 let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
@@ -110,18 +99,18 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
         })
     ));
 
-    // Importing
+    // Importing related variables.
     let exchangeDataImportRetryLimit = config.get('EXCHANGE_DATA_IMPORT_RETRY_LIMIT');
     let stateCacheImportRetryLimit = config.get('STATE_CACHE_IMPORT_RETRY_LIMIT');
     let exchangeDataImportIsSuccess, doExportStateCache;
     let stateCache, isStateCacheValid, stateCacheValidationTable, tableColour;
 
-    // Exporting
+    // Exporting related variables.
     let exchangeDataExportRetryLimit = config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT');
 
-    /*---------------------------;
-    ; Exchange Data Cache Import ;
-    ;---------------------------*/
+    /*---------------------------------;
+    ; Exchange Data State Cache Import ;
+    ;----------------------------------*/
     try {
         stateCache = await wrap.getStateCache(STATE_CACHE_FILE,
             { retryLimit: stateCacheImportRetryLimit }
@@ -168,7 +157,7 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
             });
         }
     }catch(error){
-        // Hard Error, terminate.
+        // Soft Error, move on.
         log.error({
             context: CONTEXT,
             message: ('Cached state data import has failed.\n' + error.stack)
@@ -248,6 +237,9 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
                             element: pair.toLowerCase(),
                             value: exchangeData,
                         });
+
+                        // This should result in a complete data container.
+                        TelemetryObject.isDataContainerReady = true;
                     }
 
                     if (!isStateCacheValid.current && isStateCacheValid.previous) {
@@ -280,6 +272,9 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
                             element: pair.toLowerCase(),
                             value: exchangeData,
                         });
+
+                        // This should result in a complete data container.
+                        TelemetryObject.isDataContainerReady = true;
                     }
                 } else {
                     // Cache data is too old, just set the 'current' field. We will
@@ -292,6 +287,9 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
                         element: pair.toLowerCase(),
                         value: exchangeData,
                     });
+
+                    // The data container should be flagged as incomplete.
+                    TelemetryObject.isDataContainerReady = false;
                 }
             }catch(error){
                 // Hard Error, terminate.
@@ -303,6 +301,7 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
 
                 // Update Telemetry
                 TelemetryObject.dataFeedState = 'offline';
+                TelemetryObject.isDataContainerReady = false;
 
                 // Terminate
                 process.exit(1);
@@ -349,12 +348,15 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
                 element: 'current',
                 value: stateCache.data.current
             });
+
+            TelemetryObject.isDataContainerReady = true;
         } catch(failure) {
             // Hard Error, terminate.
             log.severe({
                 context: CONTEXT,
                 message: ('Internal data failure has occured.\n' + failure.stack)
             });
+            TelemetryObject.isDataContainerReady = false;
         }
     }
 
@@ -390,60 +392,112 @@ let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
     ; Start Services ;
     ;---------------*/
     try {
-        /* Data Feed Test */
-        // TODO: Do a null check on the telemetry.
-        let response;
-        try {
-            // Send the request.
-            response = await utils.dataFeedTest(EXCHANGE);
-            if(!response){
-                // Failure
-                log.debug({
+        // Data Feed Test
+        if(TelemetryObject.query('dataFeedState')===null){
+            let response;
+            try {
+                // Send the request.
+                response = await utils.dataFeedTest(EXCHANGE);
+                if(!response){
+                    // Failure
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('FALSE')
+                    });
+
+                    // Let telemetry know we have data feed issues.
+                    TelemetryObject.dataFeedState = 'offline';
+                }else{
+                    // Success
+                    log.debug({
+                        context: CONTEXT,
+                        verbosity: 7,
+                        message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('TRUE')
+                    });
+                    // Let telemetry know we are good to go.
+                    TelemetryObject.dataFeedState = 'online';
+                }
+            } catch (failure) {
+                // On Failure
+                log.error({
                     context: CONTEXT,
-                    verbosity: 7,
-                    message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('FALSE')
+                    message: ('Failed to complete dataFeed TEST request.')
                 });
 
-                // Let telemetry know we have data feed issues.
-                TelemetryObject.dataFeedState = 'offline';
-            }else{
-                // Success
-                log.debug({
-                    context: CONTEXT,
-                    verbosity: 7,
-                    message: 'DATA_FEED_TEST_STATUS: {0}'.stringFormatter('TRUE')
-                });
-                // Let telemetry know we are good to go.
-                TelemetryObject.dataFeedState = 'online';
+                // Do NOT throw any errors here. No need to kill the server.
             }
-        } catch (failure) {
-            // On Failure
-            log.error({
-                context: CONTEXT,
-                message: ('Failed to complete dataFeed TEST request.')
-            });
-
-            // Do NOT throw any errors here. No need to kill the server.
         }
 
-        /* Services */
+        // Services
 
         // Example interval API: runInterval(skip, interval, callback)
         // skip       : Skip that many minutes.
         // internval  : Wait for that many seconds (0-59 seconds).
         // callback   : What to do once the interval is complete.
-        requestInterval.runInterval(1, 0, function() {
-            wrap.update(PAIRS, EXCHANGE, SYMBOLS, STATE_CACHE_FILE);
-        });
+        requestInterval.runInterval(
+            DATA_REQUEST_INTERVAL.skip,
+            DATA_REQUEST_INTERVAL.delay,
+            function() {
+                wrap.update(PAIRS, EXCHANGE, SYMBOLS, STATE_CACHE_FILE);
+            }
+        );
 
-        // Start main services.
-        wrap.startWebSocket(SOCKET_PORT);
-        wrap.startRestApi(REST_PORT);
+        // Main Services.
+        if(TelemetryObject.query('isDataContainerReady')){
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'DATA_CONTAINER_STATUS: {0}'.stringFormatter('READY')
+            });
+
+            // Start the services.
+            wrap.startWebSocket(SOCKET_PORT);
+            wrap.startRestApi(REST_PORT);
+
+            // Update the services state.
+            TelemetryObject.areServicesRunning = true;
+        }else{
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: 'DATA_CONTAINER_STATUS: {0}'.stringFormatter('NOT READY')
+            });
+
+            // Start the check cycle. We will have to wait until the
+            // data-container is entirely populated.
+            let serviceCheckInterval = setInterval(()=> {
+                if(TelemetryObject.query('isDataContainerReady')){
+                    log.info({
+                        context: CONTEXT,
+                        message: ('Data-container is now available.')
+                    });
+
+                    // Start services.
+                    wrap.startWebSocket(SOCKET_PORT);
+                    wrap.startRestApi(REST_PORT);
+
+                    // Update the services state.
+                    TelemetryObject.areServicesRunning = true;
+
+                    // Stop the interval.
+                    clearInterval(serviceCheckInterval);
+                }else{
+                    log.warning({
+                        context: CONTEXT,
+                        verbosity: 1,
+                        message: ('Waiting for the data-container to become available.')
+                    });
+                }
+            }, DATA_CONTAINER_WAIT_INTERVAL);
+        }
     } catch(err) {
         log.severe({
             context: CONTEXT,
             message: ('Main service has failed!\n' + err.stack)
         });
+
+        // Terminate
         process.exit(1);
     }
 })();

@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 'use strict';
 

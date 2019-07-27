@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 
 'use strict';
@@ -137,7 +138,9 @@ var webSocketTemplate = {
  */
 var diagnosticsTemplate = {
     isDataFeedActive: null,
-    dataFeedState: 'offline'
+    dataFeedState: null,
+    isDataContainerReady: false,
+    areServicesRunning: false
 };
 
 module.exports = {

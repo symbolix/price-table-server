@@ -6,6 +6,7 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 
 'use strict';
@@ -30,6 +31,12 @@ function TelemetryLayer(data) {
         },
         set dataFeedState(value){
             storage.dataFeedState = value;
+        },
+        set isDataContainerReady(value){
+            storage.isDataContainerReady = value;
+        },
+        set areServicesRunning(value){
+            storage.areServicesRunning = value;
         },
         query: (item) => {
             if(storage.dataFeedState == 'offline'){

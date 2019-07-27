@@ -4,11 +4,30 @@
  *
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
+ *
  */
 
 'use strict';
 
 var path = require('path');
+
+/** @private trimPath(arr, depth) {{{1
+ *
+ * A private function that is used to trim the end of a path array. The _arr_
+ * argument is used to pass in a path array and the _depth_ argument determines
+ * how deep we are going to trim the tail of the incoming array.
+ *
+ * @param {Array} arr
+ * @param {Intiger} depth
+ *
+ */
+
+const trimPath = (arr, depth) => {
+    for ( var i = 0; i < depth; i++ ) {
+        arr.pop();
+    }
+};
+//}}}1
 
 /** @private getStateCacheFilePath() {{{1
  *
@@ -28,7 +47,8 @@ const getStateCacheFilePath = () => {
     let separator = path.sep;
     let currentPath = __dirname.split(separator);
 
-    currentPath.pop();
+    //currentPath.pop();
+    trimPath(currentPath, 2);
 
     let stateCacheProductionLocation = (currentPath.join(separator) + '/data/statecache.json');
     let stateCacheDevelopmentLocation = path.resolve('./data/statecache.json');
@@ -59,6 +79,13 @@ var resources = {
     REST_SERVER_PORT: 9001,
     USE_MOCK_DATA_FEED: false,
     DEBUG_DATA_FEED_STATUS: false,
+    DATA_CONTAINER_WAIT_INTERVAL: 3000,
+    DATA_REQUEST_INTERVAL: {
+        /* Skip that many minutes {Integer}: 0, 1, 2, 3 ... */
+        skip: 1,
+        /* Wait that many seconds {Integer} 0-59 */
+        delay: 0
+    },
     SILENT: false,
     STATE_CACHE_FILE: getStateCacheFilePath(),
     DEBUG: {
