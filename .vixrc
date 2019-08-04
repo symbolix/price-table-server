@@ -83,7 +83,7 @@ if filereadable(g:vix_current_project.root . '/build.sh')
     " If the "build.sh" is not present, continue with the internal call.
 else
     let g:vix_current_project.dispatch.build.args =
-                \ 'echo "{build.args} No <build> rules defined."'
+                \ 'npm run build'
 endif
 
 " ;-----------------------------------------------------------------------------
@@ -126,6 +126,8 @@ else
 endif
 
 " Extra Settings
-nnoremap <F6> :Start! -title=dev npm run start:dev<CR>
+nnoremap <F6> :Start! -title=build npm run build<CR>
 nnoremap <F7> :Start! -title=server npm run start:server<CR>
+let g:tmux_session = 'runner'
+
 " vim: ft=vim
