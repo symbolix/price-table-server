@@ -5,6 +5,8 @@
  * Copyright (c) 2019 Milen Bilyanov
  * Licensed under the MIT license.
  *
+ * History:
+ *  - Fixed a unnecessery return in the set() function.
  */
 
 // Global Imports
@@ -54,7 +56,7 @@ function set(...paths){
         context: CONTEXT,
         verbosity: 5,
         colour: dim.red,
-        message: ('SET_DATA -> ' + paths[0] + ' -> ' + paths[1] + ' -> ' + paths[2] + ' -> ' + paths[3] + ' -> ' + element),
+        message: ('SET_DATA->' + paths[0] + '->' + paths[1] + '->' + paths[2] + '->' + paths[3] + '->[' + element + '=>' + JSON.stringify(value) + ']'),
     });
 
     // Remove the last element
@@ -93,8 +95,6 @@ function set(...paths){
             nested = nested[path];
         }
     }
-
-    return dataObj;
 }
 //}}}1
 
@@ -116,7 +116,7 @@ function get(...paths){
         context: CONTEXT,
         verbosity: 5,
         colour: dim.green,
-        message: ('GET_DATA <- ' + paths[0] + ' <- ' + paths[1] + ' <- ' + paths[2] + ' <- ' + paths[3] + ' <= ' + element),
+        message: ('GET_DATA<-' + paths[0] + '<-' + paths[1] + '<-' + paths[2] + '<-' + paths[3] + '<=' + element),
     });
 
     let nested = dataObj;
@@ -175,7 +175,7 @@ function init(template){
  * properly or we fail all together.
  *
  * The _options_ parameter is an options object containing the following routes into the data storage:
- * {section, field, pair, component, element, val}.
+ * {section, field, pair, component, element, value}.
  *
  * This function will return a boolean, an indication of the success of the
  * procedure.
@@ -222,6 +222,7 @@ function update(options){
     // passed in as a whole object. We still need to check if the element
     // consists of a single-key object. In this case, 'eth' is the only key and
     // the rest is the value.
+
     if(isElementTypeObject){
         if(Object.keys(element).length > 1){
             try {
@@ -275,7 +276,7 @@ function update(options){
 }
 // }}}1
 
-/** @public query(options) {{{1
+/** @public query(options, forceDeepCopy = boolean) {{{1
  *
  * A public method that wraps the private get() method. Expects an _options_
  * argument that will pass a route to the data storage in the following format:
@@ -288,7 +289,7 @@ function update(options){
  * @returns {Value}
  */
 
-function query(options){
+function query(options, forceDeepCopy = true){
     let CONTEXT = MODULE + '.' + 'query';
     let section, field, pair, component, element;
 
@@ -334,8 +335,32 @@ function query(options){
     }
 
     try {
+        // WARNING: This end-point is a shallow-copy!
         let result = get(section, field, pair, component, element);
-        return result;
+
+        // This should fix the deep-copy issue where querried data bits were
+        // returned as shallow copies and were exposed to mutation.
+        if(forceDeepCopy){
+            let dataMode = '__DEEP_COPY__';
+            log.debug({
+                context: CONTEXT,
+                verbosity: 7,
+                message: ('Accessed data will be returned as:' + dataMode)
+            });
+
+            let prepStringifiedResult = JSON.stringify(result);
+
+            return JSON.parse(prepStringifiedResult);
+        }else{
+            let dataMode = '__SHALLOW_COPY__';
+            log.warning({
+                context: CONTEXT,
+                verbosity: 7,
+                message: ('Accessed data will be returned as:' + dataMode)
+            });
+
+            return result;
+        }
     }catch(err){
         log.severe({
             context: CONTEXT,

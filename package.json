@@ -1,6 +1,6 @@
 {
     "name": "price-table-server",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "A ticker data server.",
     "main": "index.js",
     "scripts": {
@@ -10,9 +10,11 @@
         "copy:server": "./node_modules/.bin/ycopy ./src/server/ ./dist/server/ -r '^((?!tests$).)*$' -i",
         "copy:package": "./node_modules/.bin/copyfiles package-production.json ./dist/",
         "rename:package": "./node_modules/.bin/rename ./dist/package-production.json ./dist/package.json",
+        "//": " --- BUNDLES ---",
         "build": "npm run clean:dist && npm run prep:dist && npm run copy:server && npm run copy:package && npm run rename:package",
         "start:dev": "NODE_ENV=development nodemon src/server/index.js",
         "start:server": "NODE_ENV=production node dist/server/index.js",
+        "//": " --- DEFAULTS ---",
         "prompt": "echo 'No prompt functionality available'",
         "greet": "echo 'Welcome to my project.'"
     },

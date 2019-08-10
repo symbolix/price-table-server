@@ -10,7 +10,7 @@
 'use strict';
 
 // Project Imports
-const { cyan, white, red, green, yellow, blue } = require ('ansicolor');
+const { cyan, white, red, green, yellow } = require ('ansicolor');
 const { table } = require('table');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -24,9 +24,9 @@ const utils = require('./utils.js');
 const telemetry = require('./telemetry.js');
 const schema = require('./data-schema.js');
 const tables = require('./tables.js');
-const timers = require('./timers.js');
-const config = require('./config.js');
-const data = require('./data-container.js');
+//const timers = require('./timers.js');
+//const config = require('./config.js');
+//const data = require('./data-container.js');
 const assetRoutes = require('./rest/routes/assetRoutes');
 const socket = require('./socket/socketObject');
 const globals = require('./globals');
@@ -39,10 +39,10 @@ var MODULE = 'wrappers';
 // Initializations
 const log = logging.getLogger();
 let TelemetryObject = new telemetry.Layer(schema.diagnosticsTemplate);
-let requestInterval = new timers.Interval('request');
+//let requestInterval = new timers.Interval('request');
 let SocketObject = new socket.Layer(schema.webSocketTemplate, APP_NAME, APP_VERSION);
 
-/** @public serializeLists(primary, secondary) {{{1
+/** @public populateData(primary, secondary) {{{1
  *
  *  Create a specific object by combining two source objects. The _pairs_ argument is array with
  *  the first set of keys and _assets_ is the array that contains the sub-set of keys.
@@ -51,14 +51,25 @@ let SocketObject = new socket.Layer(schema.webSocketTemplate, APP_NAME, APP_VERS
  *  @param {Array}
  */
 
-const serializeLists = (primary, secondary) => {
+const populateData = (primary, secondary) => {
     let container = {};
 
     primary.map(pair => {
-        let assetsStructure = {};
+        // Internal template.
+        let assetsStructure = {
+            assets: {},
+            signature: {
+                timestamp: null,
+                success: null
+            }
+        };
+
+        // Process sub-items.
         secondary.map(asset => {
-            assetsStructure[asset] = null;
+            assetsStructure['assets'][asset] = {};
         });
+
+        // Build the object.
         container[pair] = assetsStructure;
     });
 
@@ -597,206 +608,7 @@ const exportExchangeData = async (filepath, stateData, { retryLimit = 1 }) => {
 };
 //}}}1
 
-/** @public async update(pairs, exchange, symbols, stateCacheFile) {{{1
- *
- * A request wrapper that is designed to run at each interval.
- */
-
-const update = async (pairs, exchange, symbols, stateCacheFile) => {
-    // Start request state.
-    requestInterval.setState('isRequestActive', true);
-
-    const CONTEXT = MODULE + '.' + 'update';
-
-    try {
-        // Exchange Request Cycle Label
-        log.label({
-            verbosity: 1,
-            colour: blue.inverse,
-            message: 'exchange_request_cycle ({0})'.stringFormatter('START')
-        });
-
-        // Handle current/previous relation-ship here.
-        let isTimestampValid, isSuccess = true;
-
-        // DEBUG - TEST: Simulate missing timestamps and unsuccessful states.
-        // data.update({
-        //     section: 'data',
-        //     field: 'current',
-        //     pair: 'usd',
-        //     element: 'signature',
-        //     value: {
-        //         timestamp: null,
-        //         success: false
-        //     }
-        // });
-        // DEBUG - TEST
-
-        // Probe timestamps and success flags for the pair(s).
-        for (const pair of pairs) {
-            let getTimestamp = data.query({
-                section: 'data',
-                field: 'current',
-                pair: pair.toLowerCase(),
-                component: 'signature',
-                element: 'timestamp'
-            });
-
-            if(!getTimestamp){
-                isTimestampValid = false;
-            }
-
-            // Prevent reset if already 'false'.
-            if(getTimestamp && isTimestampValid != false){
-                isTimestampValid = true;
-            }
-
-            let getSuccess = data.query({
-                section: 'data',
-                field: 'current',
-                pair: pair.toLowerCase(),
-                component: 'signature',
-                element: 'success'
-            });
-
-            if(!getSuccess){
-                isSuccess = false;
-            }
-
-            // Prevent reset if already 'false'.
-            if(getSuccess && isSuccess != false){
-                isSuccess = true;
-            }
-        }
-
-        // Evaluate timestamps and success results.
-        if(isTimestampValid && isSuccess){
-            log.debug({
-                context: CONTEXT,
-                verbosity: 7,
-                message: 'CURRENT data is available and will be stored as PREVIOUS data prior to the exchange call.'
-            });
-
-            // Deep-copy 'current' to 'previous'. As a result both fields would have the same values at this point.
-            data.shuffleData('current', 'previous');
-        }else{
-            log.warning({
-                context: CONTEXT,
-                verbosity: 7,
-                message: 'No CURRENT data is detected. No updates will be performed on the PREVIOUS data prior to the exchange call.'
-            });
-        }
-
-        let validators = [];
-
-        // Run the exchange request(s).
-        for (const pair of pairs) {
-            try {
-                // Make a data request, so that we can reconstruct any missing bits
-                // of the incoming state cache.
-                let exchangeData = await getExchangeData(exchange, pair, symbols,
-                    { retryLimit: 3 },
-                    { allowPartial: true }
-                );
-
-                // Accumulate the validators here.
-                // Basically create an array of states: [true, true, true, false, true ...]
-                Object.keys(exchangeData['assets']).forEach((a) => validators.push(exchangeData['assets'][a]['success']));
-
-                // Update the data container. Propagate only the assets with a success flag.
-                data.updatePair(
-                    pair.toLowerCase(),
-                    exchangeData, { forceGranularity: true }
-                );
-            }catch(error){
-                // Soft Error
-                log.severe({
-                    context: CONTEXT,
-                    message: ('Exchange data request has failed!\n' + error.stack)
-                });
-
-                // Update Telemetry
-                TelemetryObject.dataFeedState = 'offline';
-            }
-        }
-
-        // Evaluate the data feed integrity.
-        let consolidatedValidators = validators
-            .map((flag) => { return flag = flag ? 1 : 0; })
-            .filter(e => e > 0)
-            .reduce((acc, val) => { return acc + val; }, 0);
-
-        if (consolidatedValidators == validators.length) {
-            TelemetryObject.dataFeedState = 'online';
-        } else {
-            if (consolidatedValidators == 0) {
-                TelemetryObject.dataFeedState = 'offline';
-            } else {
-                TelemetryObject.dataFeedState = 'degraded';
-            }
-        }
-
-        // The data container should be intact at this stage.
-        if(!TelemetryObject.query('isDataContainerReady')){
-            TelemetryObject.isDataContainerReady = true;
-        }
-
-        // Cache the updated data container.
-        try {
-            log.info({
-                context: CONTEXT,
-                message: ('Attempting to generate a fresh data state cache.')
-            });
-
-            await exportExchangeData(stateCacheFile, data.exportState(),
-                { retryLimit: config.get('EXCHANGE_DATA_EXPORT_RETRY_LIMIT') },
-            );
-
-            log.info({
-                context: CONTEXT,
-                message: ('Data state cached successfully.')
-            });
-        } catch(error) {
-            // Soft Error
-            log.severe({
-                context: CONTEXT,
-                message: ('Data state EXPORT has failed.\n' + error.stack)
-            });
-        }
-
-        // Call the emission hook within the web-socket loop, only if the
-        // services are running.
-        if(TelemetryObject.query('areServicesRunning')){
-            activeWebSocketEmission( {signal: true, dataFeed:  TelemetryObject.query('dataFeedState')} );
-        }
-
-        // Success Label
-        log.label({
-            verbosity: 1,
-            colour: blue.inverse,
-            message: 'exchange_request_cycle [SUCCESS] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
-        });
-    } catch(error) {
-        // Error Label
-        log.label({
-            verbosity: 1,
-            colour: red.inverse,
-            message: 'exchange_request_cycle [FAILED] ({0})'.stringFormatter('END') + ''.padEnd(2, '_')
-        });
-
-        // Let the service know about the data feed failure.
-        TelemetryObject.dataFeedState = 'offline';
-
-        log.severe({
-            context: CONTEXT,
-            message: ('Failed to propagate exchange data.\n' + error.stack)
-        });
-    }
-
-    // End the request state here.
-    requestInterval.setState('isRequestActive', false);
-};
-// }}}1
+// --- REMOVED UPDATE ---
 
 /** @public activeWebSocketEmitter() {{{1
  * Defines an active WebSocket emission hook.
@@ -1025,14 +837,13 @@ function startWebSocket(port) {
 //}}}1
 
 module.exports = {
-    serializeLists: serializeLists,
+    populateData: populateData,
     fetchCachedData: fetchCachedData,
     fetchExchangeData: fetchExchangeData,
     sendExchangeData: sendExchangeData,
     getStateCache: getStateCache,
     getExchangeData: getExchangeData,
     exportExchangeData: exportExchangeData,
-    update: update,
     activeWebSocketEmitter: activeWebSocketEmitter,
     activeWebSocketEmission: activeWebSocketEmission,
     startRestApi: startRestApi,

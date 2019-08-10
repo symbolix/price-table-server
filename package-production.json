@@ -1,6 +1,6 @@
 {
     "name": "price-table-server",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "A ticker data server.",
     "main": "index.js",
     "scripts": {
