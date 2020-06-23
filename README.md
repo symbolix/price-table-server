@@ -114,7 +114,6 @@ tmux send-keys -t run:server C-c
 *   v0.0.4: Fixed an uuid v1 issue, fixed a mistake in the deployment script,
     updated the README.md file. 
 
-
 ## Authors
 
 **cryptoeraser** - [twitter/@cryptoeraser](https://twitter.com/cryptoeraser)
