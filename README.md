@@ -2,6 +2,51 @@
 
 A simple application that displays a price chart for various assets.
 
+## Deployment
+
+1) Run the update procedures:
+
+```bash
+npm outdated
+```
+
+```bash
+npm install -g npm-check-updates
+```
+
+```bash
+ncu -u
+```
+
+```bash
+npm update
+```
+
+2) Build:
+
+```bash
+npm run build
+```
+
+3) Complete the build by going into the `dist` folder.
+
+```bash
+cd ./dist
+```
+
+Once inside the `dist` folder, run the following command to re-install all of
+the modules.
+
+```bash
+npm install
+```
+
+4) Launch the server with the following command:
+
+```bash
+npm run start:server
+```
+
 ## Troubleshooting
 
 ### Getting Real-time Markdown Preview
@@ -63,6 +108,11 @@ tmux send-keys -t run:server C-z 'clear' C-m
 tmux send-keys -t run:server C-c
 ```
 
+## Version History
+
+*   v0.0.3: Fixed time-interval bug, fixed data.query() shallow-copy bug.
+*   v0.0.4: Fixed an uuid v1 issue, fixed a mistake in the deployment script,
+    updated the README.md file. 
 
 
 ## Authors
