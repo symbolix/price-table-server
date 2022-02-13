@@ -26,7 +26,7 @@
     "author": "Milen Bilyanov <milen.bilyanov@gmail.com> (www.tradekit.io)",
     "license": "MIT",
     "dependencies": {
-        "ajv": "^6.12.2",
+        "ajv": "^6.12.3",
         "ajv-keywords": "^3.5.0",
         "ansicolor": "^1.1.93",
         "as-table": "^1.0.55",
