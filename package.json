@@ -45,7 +45,7 @@
     "devDependencies": {
         "browser-sync": "^2.26.7",
         "copyfiles": "^2.3.0",
-        "grunt": "^1.1.0",
+        "grunt": "^1.5.2",
         "grunt-browser-sync": "^2.2.0",
         "grunt-contrib-concat": "^1.0.1",
         "grunt-contrib-connect": "^2.1.0",
